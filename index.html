@@ -901,6 +901,8 @@ body.pdp-sheet-open .pdp-switcher { opacity: 0; pointer-events: none; }
 .pc-dots { position: absolute; left: 50%; bottom: 10px; z-index: 1; display: flex; gap: 6px; transform: translateX(-50%); pointer-events: none; }
 .pc-dots span { width: 6px; height: 6px; border-radius: 999px; background: #ffffff8c; box-shadow: 0 0 2px rgba(0,0,0,.3); transition: background-color .2s, width .2s; }
 .pc-dots span.is-on { width: 16px; background: #fff; }
+/* B / C: a selected room's CTA (still opens its options) */
+.btn-selected { display: inline-flex; align-items: center; gap: 6px; }
 
 </style>
 </head>
@@ -2817,7 +2819,7 @@ window.DESTINATIONS = [
           <div class="grid-foot">
             <div class="opt-price">${from ? `<small>From</small><b>${inr(from)}<small> /night</small></b>` : '<small>No options match</small>'}</div>
             ${picked.length
-              ? `<button type="button" class="btn btn-secondary btn-sm" data-action="sheet-show" data-room="${r.id}">Edit options</button>`
+              ? `<button type="button" class="btn btn-primary btn-sm btn-selected" data-action="sheet-show" data-room="${r.id}" aria-label="Selected. Edit ${esc(r.name)} options">${icon('check', 16)}Selected</button>`
               : `<button type="button" class="btn btn-secondary btn-outline btn-sm" data-action="sheet-select" data-room="${r.id}"${from ? '' : ' disabled'}>Select room</button>`}
           </div>
         </div>
