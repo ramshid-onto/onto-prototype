@@ -636,8 +636,14 @@ body.title-hidden .crumb-pdp { opacity: 1; transform: none; pointer-events: auto
 /* ------------------------------------------------------------ summary card */
 .pdp-summary { align-self: start; }
 @media (min-width: 1024px) {
-  .pdp-summary { position: sticky; top: calc(var(--header-h) + 64px); max-height: calc(100vh - var(--header-h) - 80px); overflow-y: auto; margin-top: 36px; padding: 20px; border-radius: var(--r-xl); border: 1px solid var(--line); background: var(--surface); box-shadow: var(--shadow-card); scrollbar-width: thin; }
+  /* two stacked cards: Your stay, then Your rooms + price + Reserve (padding keeps their shadows from clipping) */
+  .pdp-summary { position: sticky; top: calc(var(--header-h) + 64px); max-height: calc(100vh - var(--header-h) - 80px); overflow-y: auto; margin: 30px -8px 0; padding: 6px 8px 12px; scrollbar-width: thin; }
+  .sum-card { padding: 20px; border-radius: var(--r-xl); border: 1px solid var(--line); background: var(--surface); box-shadow: var(--shadow-card); }
+  .sum-card > .sum-block:first-child { padding-top: 0; border-top: 0; }
 }
+.sum-card { display: flex; flex-direction: column; gap: 16px; }
+.sum-card + .sum-card { margin-top: 0; }
+@media (max-width: 1023px) { .sum-card + .sum-card { padding-top: 16px; border-top: 1px dashed var(--line); } }
 .sum-sheet-head { display: none; }
 .sum-body { display: flex; flex-direction: column; gap: 16px; }
 .sum-block { display: flex; flex-direction: column; gap: 10px; }
@@ -2912,7 +2918,7 @@ window.DESTINATIONS = [
     const allFlex = items.every((it) => it.rate.refundable);
     const taxes = Math.round(total - total / 1.12);
     return `
-      <section class="sum-block">
+      <section class="sum-block sum-card">
         <h2 class="h4 sum-title">Your stay</h2>
         <div class="stay-fields">
           <button type="button" class="field" data-action="open-sheet" data-sheet="when" aria-haspopup="dialog" aria-expanded="false">
@@ -2924,6 +2930,7 @@ window.DESTINATIONS = [
         </div>
       </section>
       ${items.length ? `
+      <div class="sum-card">
       <section class="sum-block">
         <h2 class="h4 sum-title">Your rooms</h2>
         ${items.length ? `<ul class="sum-items">${items.map((it) => `
@@ -2943,7 +2950,8 @@ window.DESTINATIONS = [
       </section>` : ''}
       <button type="button" class="btn btn-primary btn-block" data-action="pdp-reserve"${ok ? '' : ' disabled'}>${ok ? `Reserve · ${inr(total)}` : items.length ? 'Add rooms to continue' : 'Select a room'}</button>
       <p class="sum-note">${icon('check', 14)}${items.length && !allFlex ? 'Includes a non-refundable rate' : `Free cancellation until ${cancelBy()}`}</p>
-      <p class="sum-note">${icon('sparkle', 14)}<span><b>onto price drop</b> activates once you book</span></p>` : ''}`;
+      <p class="sum-note">${icon('sparkle', 14)}<span><b>onto price drop</b> activates once you book</span></p>
+      </div>` : ''}`;
   }
 
   function mobileBarHTML() {
