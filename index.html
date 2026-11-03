@@ -867,7 +867,8 @@ body.pdp-sheet-open .pdp-switcher { opacity: 0; pointer-events: none; }
 .rate-price b { font-size: 1.5rem; }
 .rate-price span { font-size: .875rem; color: var(--ink-muted); }
 .rate-tax { margin-top: -4px; font-size: .8125rem; color: var(--ink-muted); }
-.rate-book { width: 100%; margin-top: 6px; }
+.rate-book { width: 100%; margin-top: 6px; border-color: var(--ink-strong); }
+.rate-book:hover { background: var(--ink-strong); color: #fff; }
 .rate-qty { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
 @media (max-width: 639px) {
   .rr-head { grid-template-columns: 1fr; gap: 10px; }
@@ -2691,7 +2692,7 @@ window.DESTINATIONS = [
           <p class="rate-tax">Including taxes & fees</p>
           ${qty
             ? `<div class="rate-qty">${qtyControlHTML(r, rt, need)}</div>`
-            : `<button type="button" class="btn btn-primary rate-book" data-action="rate-select" data-key="${key}" data-need="${Math.min(need, r.left)}">Book${need > 1 ? ` ${Math.min(need, r.left)} rooms` : ''}</button>`}
+            : `<button type="button" class="btn btn-secondary rate-book" data-action="rate-select" data-key="${key}" data-need="${Math.min(need, r.left)}">Book${need > 1 ? ` ${Math.min(need, r.left)} rooms` : ''}</button>`}
         </div>
       </div>`;
   }
@@ -3092,10 +3093,8 @@ window.DESTINATIONS = [
       case 'sheet-select': {
         const c = applyFilters({ meal: 'none', refundable: false });
         const key = `${room.id}|${rateFor(c).id}`;
-        // Same rule as "Select": if the current rooms already fit everyone, this one replaces them.
-        const others = selection();
-        if (others.length && fitsParty(capacity(others))) others.forEach((it) => pdp.sel.delete(it.key));
-        pdp.sel.set(key, Math.min(roomsNeeded(room), room.left));
+        // One room type per booking: this replaces whatever was picked before.
+        pdp.sel = new Map([[key, Math.min(roomsNeeded(room), room.left)]]);
         pdp.sheet = room.id; pdp.sheetIn = true;
         refreshDynamic();
         break;
@@ -3134,10 +3133,8 @@ window.DESTINATIONS = [
         break;
       }
       case 'rate-select': {
-        pdp.sel.set(a.dataset.key, +a.dataset.need || 1);
-        // Picking a fresh option when the current choice already fits replaces it instead of stacking rooms.
-        const others = selection().filter((it) => it.key !== a.dataset.key);
-        if (others.length && fitsParty(capacity(others))) others.forEach((it) => pdp.sel.delete(it.key));
+        // One room type per booking: picking an option replaces whatever was picked before.
+        pdp.sel = new Map([[a.dataset.key, +a.dataset.need || 1]]);
         refreshDynamic();
         break;
       }
