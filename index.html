@@ -836,6 +836,50 @@ body.pdp-sheet-open .pdp-switcher { opacity: 0; pointer-events: none; }
 
 
 
+/* D · Rate cards: room header + a sideways row of rate cards */
+.room--rates { padding: 8px 0 16px; }
+.rr-head { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 20px; padding: 0 8px; }
+.rr-photo .room-photo { aspect-ratio: 3 / 2; height: auto; min-height: 0; }
+.rr-info { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 10px 12px 0 0; min-width: 0; }
+.rr-info .link-btn { padding: 0; }
+.rr-need { display: inline-flex; align-items: center; gap: 6px; font-size: .875rem; font-weight: 700; color: #b45309; }
+.rr-scroller { position: relative; margin-top: 16px; }
+.rr-row { display: flex; gap: 16px; padding: 4px 16px 6px; overflow-x: auto; scroll-snap-type: x mandatory; scroll-padding: 0 16px; scrollbar-width: none; }
+.rr-row::-webkit-scrollbar { display: none; }
+.rr-nav { position: absolute; top: 50%; z-index: 2; display: grid; place-items: center; width: 36px; height: 36px; transform: translateY(-50%); border-radius: 999px; border: 1px solid var(--line); background: var(--surface); box-shadow: var(--shadow-card); color: var(--ink-strong); }
+.rr-nav:hover { border-color: var(--line-strong); }
+.rr-nav.prev { left: 6px; }
+.rr-nav.next { right: 6px; }
+@media (hover: none) { .rr-nav { display: none; } }
+.rate-card { flex: 0 0 272px; scroll-snap-align: start; display: flex; flex-direction: column; gap: 12px; padding: 18px; border-radius: var(--r-lg); border: 1px solid var(--line); background: var(--surface); transition: border-color .15s, box-shadow .15s; }
+.rate-card.is-selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); background: #f6fcf9; }
+.rate-title { font-size: 1.125rem; font-weight: 700; line-height: 1.25; color: var(--ink-strong); }
+.rate-incl { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.rate-incl li { display: flex; align-items: flex-start; gap: 8px; font-size: .9375rem; color: var(--ink-strong); }
+.rate-incl svg { flex-shrink: 0; margin-top: 2px; }
+.rate-incl .yes svg { color: var(--accent); }
+.rate-incl .no { color: var(--ink); }
+.rate-incl .no svg { color: #dc2626; }
+.rate-incl .none { color: var(--ink-muted); }
+.rate-incl .none svg { color: var(--ink-muted); }
+.rr-nav[hidden] { display: none; }
+.rate-more { align-self: flex-start; padding: 0; }
+.rate-bottom { display: flex; flex-direction: column; gap: 6px; margin-top: auto; padding-top: 8px; }
+.rate-badge { align-self: flex-start; padding: 3px 10px; border-radius: 6px; background: #d9f2e3; color: #14532d; font-size: .75rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+.rate-price { font-size: .8125rem; font-weight: 700; color: var(--ink-strong); }
+.rate-price b { font-size: 1.375rem; }
+.rate-price span { font-weight: 500; color: var(--ink-muted); }
+.rate-was { font-size: .875rem; }
+.rate-was s { color: var(--ink-muted); }
+.rate-was span { color: var(--accent); font-weight: 700; }
+.rate-book { width: 100%; margin-top: 6px; }
+.rate-qty { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
+@media (max-width: 639px) {
+  .rr-head { grid-template-columns: 1fr; gap: 10px; }
+  .rr-info { padding: 0 8px; }
+  .rate-card { flex-basis: 78%; }
+}
+
 </style>
 </head>
 <body data-layout="classic">
@@ -2494,13 +2538,14 @@ window.DESTINATIONS = [
   ];
 
   /* ------------------------------------------------------------------ state */
-  const ROOM_LAYOUTS = [['compact', 'A · Compact'], ['sheet', 'B · Card sheet'], ['sheet2', 'C · Card sheet, 2-up']];
+  const ROOM_LAYOUTS = [['compact', 'A · Compact'], ['sheet', 'B · Card sheet'], ['sheet2', 'C · Card sheet, 2-up'], ['rates', 'D · Rate cards']];
   let savedLayout = null;
   try { savedLayout = localStorage.getItem('onto-room-layout'); } catch {}
   const pdp = {
     hotel: null, sel: new Map(), roomFilter: new Set(), amenitiesOpen: false, mobileSummary: false,
     roomLayout: ROOM_LAYOUTS.some(([id]) => id === savedLayout) ? savedLayout : 'compact',
     sheet: null, // B / C: id of the room whose options sheet is open
+    perksOpen: new Set(), // D: rate cards showing all their inclusions ('roomId|rateId')
     sheetIn: false, // B / C: play the slide-up only on the render that opens the sheet
   };
 
@@ -2589,7 +2634,7 @@ window.DESTINATIONS = [
 
   function roomListHTML() {
     const list = ROOMS.filter((r) => !pdp.roomFilter.has('fits') || roomsNeeded(r) === 1);
-    const renderRoom = { compact: roomCompactHTML, sheet: roomSheetHTML, sheet2: roomSheetHTML }[pdp.roomLayout];
+    const renderRoom = { compact: roomCompactHTML, sheet: roomSheetHTML, sheet2: roomSheetHTML, rates: roomRatesHTML }[pdp.roomLayout];
     return list.map((r) => renderRoom(r)).join('') || '<p class="rooms-empty">No rooms match these filters.</p>';
   }
 
@@ -2634,6 +2679,79 @@ window.DESTINATIONS = [
     if (pdp.roomFilter.has('meal') && c.meal === 'none') c.meal = 'bb';
     if (pdp.roomFilter.has('refundable')) c.refundable = true;
     return c;
+  }
+
+  // D · Rate cards: room header, then a sideways row of rate cards (title, inclusions, price, Book).
+  const RATE_TITLES = { none: 'Room only', bb: 'Room with Breakfast', hb: 'Room with Breakfast & Dinner', ai: 'Room with All Meals' };
+  const MEAL_LINE = { bb: 'Breakfast', hb: 'Breakfast and dinner', ai: 'Breakfast, lunch and dinner' };
+  const EXTRAS = {
+    none: ['Free WiFi'],
+    bb: ['Free WiFi', 'Welcome drink on arrival', 'Early check-in, subject to availability'],
+    hb: ['Free WiFi', 'Welcome drink on arrival', '10% off spa treatments'],
+    ai: ['Free WiFi', 'Welcome drink on arrival', '10% off spa treatments', 'Soft drinks with meals'],
+  };
+  // Dummy "was" prices so the cards can show a discount, like the live site.
+  const RATE_DEAL = { 'none-nr': [10], 'none-fc': [5], 'bb-fc': [5], 'hb-fc': [15, 'Luxury deal'], 'ai-fc': [8] };
+
+  function rateCardHTML(r, rt, need) {
+    const key = `${r.id}|${rt.id}`;
+    const qty = pdp.sel.get(key) || 0;
+    const price = priceOf(r, rt);
+    const base = Math.round(price / 1.12);
+    const [off, badge] = RATE_DEAL[rt.id];
+    const was = Math.round(base / (1 - off / 100) / 100) * 100;
+    const extras = EXTRAS[rt.mealId];
+    const open = pdp.perksOpen.has(key);
+    return `
+      <div class="rate-card${qty ? ' is-selected' : ''}">
+        <h4 class="rate-title">${RATE_TITLES[rt.mealId]}</h4>
+        <ul class="rate-incl">
+          ${rt.meal ? `<li class="yes">${icon('check', 16)}${MEAL_LINE[rt.mealId]}</li>` : `<li class="none">${icon('food', 16)}No meals included</li>`}
+          ${rt.refundable ? `<li class="yes">${icon('check', 16)}Free cancellation till ${cancelBy()}</li>` : `<li class="no">${icon('x', 16)}Non-refundable</li>`}
+          ${open ? extras.map((x) => `<li class="yes">${icon('check', 16)}${esc(x)}</li>`).join('') : ''}
+        </ul>
+        <button type="button" class="link-btn rate-more" data-action="rate-perks" data-key="${key}" aria-expanded="${open}">${open ? 'Show less' : `+ ${plural(extras.length, 'inclusion')}`}</button>
+        <div class="rate-bottom">
+          ${badge ? `<span class="rate-badge">${badge}</span>` : ''}
+          <p class="rate-price"><b>${inr(base)}</b> + ${inr(price - base)} taxes & fees <span>/night</span></p>
+          <p class="rate-was"><s>${inr(was)}</s> <span>${off}% off</span></p>
+          ${qty
+            ? `<div class="rate-qty">${qtyControlHTML(r, rt, need)}</div>`
+            : `<button type="button" class="btn btn-primary rate-book" data-action="rate-select" data-key="${key}" data-need="${Math.min(need, r.left)}">Book${need > 1 ? ` ${Math.min(need, r.left)} rooms` : ''}</button>`}
+        </div>
+      </div>`;
+  }
+
+  // Arrows only show when there's more to scroll that way.
+  function rateNav(row) {
+    const box = row.parentElement;
+    box.querySelector('.prev').hidden = row.scrollLeft < 4;
+    box.querySelector('.next').hidden = row.scrollLeft + row.clientWidth >= row.scrollWidth - 4;
+  }
+  document.addEventListener('scroll', (e) => { if (e.target.classList?.contains('rr-row')) rateNav(e.target); }, true);
+  window.addEventListener('resize', () => $$('.rr-row').forEach(rateNav));
+
+  function roomRatesHTML(r) {
+    const need = roomsNeeded(r);
+    const rates = visibleRates();
+    return `
+      <article class="room room--rates" data-room="${r.id}">
+        <div class="rr-head">
+          <div class="rr-photo">${photoButtonHTML(r)}</div>
+          <div class="rr-info">
+            <h3 class="room-name">${esc(r.name)}</h3>
+            <ul class="room-facts"><li>${icon('bed', 16)}${esc(r.bed)}</li><li>${icon('expand', 16)}${r.size} m²</li><li>${icon('users', 16)}Sleeps ${r.maxGuests}</li><li>${icon('water', 16)}${esc(r.view)}</li></ul>
+            ${need > 1 ? `<p class="rr-need">${icon('users', 14)}You'll need ${need} rooms for ${plural(party().total, 'guest')}</p>` : ''}
+            <button type="button" class="link-btn" data-action="room-details" data-room="${r.id}">Room details</button>
+          </div>
+        </div>
+        ${rates.length ? `
+        <div class="rr-scroller">
+          <button type="button" class="rr-nav prev" data-action="rates-scroll" data-dir="-1" aria-label="Previous rates">${icon('chevron-left', 18)}</button>
+          <div class="rr-row">${rates.map((rt) => rateCardHTML(r, rt, need)).join('')}</div>
+          <button type="button" class="rr-nav next" data-action="rates-scroll" data-dir="1" aria-label="More rates">${icon('chevron-right', 18)}</button>
+        </div>` : '<p class="rates-empty">No options match these filters.</p>'}
+      </article>`;
   }
 
   // A · Compact: one line per option.
@@ -2738,7 +2856,11 @@ window.DESTINATIONS = [
     const el = $('#room-list');
     if (!el) return;
     el.className = `room-list room-list--${pdp.roomLayout}`;
+    // D: keep each rate row where the guest scrolled it.
+    const scrolled = $$('.rr-row', el).map((row) => [row.closest('.room').dataset.room, row.scrollLeft]);
     el.innerHTML = roomListHTML();
+    scrolled.forEach(([id, x]) => { const row = $(`.room[data-room="${id}"] .rr-row`, el); if (row) row.scrollLeft = x; });
+    $$('.rr-row', el).forEach(rateNav);
     pdp.sheetIn = false;
   }
 
@@ -2831,6 +2953,7 @@ window.DESTINATIONS = [
       <div class="pdp-mobilebar" id="pdp-mobilebar">${mobileBarHTML()}</div>`;
     O.renderGuestsChips();
     observeSpy();
+    $$('.rr-row').forEach(rateNav);
   }
 
   // Lighter re-render that keeps the summary's Your-stay buttons in place (they can be anchoring an open sheet).
@@ -3005,6 +3128,17 @@ window.DESTINATIONS = [
       }
       case 'sheet-show': pdp.sheet = room.id; pdp.sheetIn = true; paintRoomList(); break;
       case 'sheet-close': pdp.sheet = null; paintRoomList(); break;
+      case 'rate-perks': {
+        const k = a.dataset.key;
+        pdp.perksOpen.has(k) ? pdp.perksOpen.delete(k) : pdp.perksOpen.add(k);
+        paintRoomList();
+        break;
+      }
+      case 'rates-scroll': {
+        const row = a.parentElement.querySelector('.rr-row');
+        row.scrollBy({ left: +a.dataset.dir * (row.querySelector('.rate-card').offsetWidth + 16), behavior: 'smooth' });
+        break;
+      }
       case 'sp-meal': case 'sp-fc': {
         const [roomId, rateId] = a.dataset.key.split('|');
         const rt = rateById(rateId);
