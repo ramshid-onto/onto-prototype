@@ -666,7 +666,7 @@ body.title-hidden .crumb-pdp { opacity: 1; transform: none; pointer-events: auto
 .cap-warn b { color: #92400e; }
 .sum-price { gap: 8px; }
 .sum-row { display: flex; justify-content: space-between; gap: 12px; color: var(--ink); }
-.sum-total { padding-top: 10px; border-top: 1px solid var(--line); color: var(--ink-strong); font-size: 1.125rem; align-items: baseline; }
+.sum-total { color: var(--ink-strong); font-size: 1.125rem; align-items: baseline; }
 .sum-total small { color: var(--ink-muted); font-size: .75rem; font-weight: 500; }
 .sum-total b { font-size: 1.375rem; }
 .sum-note { display: flex; align-items: center; gap: 6px; font-size: .8125rem; color: var(--ink-muted); }
@@ -2912,11 +2912,7 @@ window.DESTINATIONS = [
       const shortBy = Math.max(p.total - cap.guests, 0);
       status = `<div class="cap cap-warn">${icon('users', 16)}<div><b>Not enough space yet</b><small>Your rooms sleep ${cap.guests} (max ${plural(cap.adults, 'adult')}). Add room for ${shortBy ? plural(shortBy, 'more guest') : 'another adult'}.</small>
         ${best ? `<button type="button" class="link-btn" data-action="fix-party">Switch to ${best.n > 1 ? `${best.n} × ` : ''}${esc(best.r.name)}</button>` : ''}</div></div>`;
-    } else if (ok) {
-      status = `<div class="cap cap-ok">${icon('check', 16)}<div><b>Fits ${partyLabel()}</b><small>${plural(cap.rooms, 'room')} · sleeps up to ${cap.guests}</small></div></div>`;
     }
-    const allFlex = items.every((it) => it.rate.refundable);
-    const taxes = Math.round(total - total / 1.12);
     return `
       <section class="sum-block sum-card">
         <h2 class="h4 sum-title">Your stay</h2>
@@ -2944,13 +2940,9 @@ window.DESTINATIONS = [
       </section>
       ${items.length ? `
       <section class="sum-block sum-price">
-        <div class="sum-row"><span>${plural(cap.rooms, 'room')} × ${plural(nights, 'night')}</span><span>${inr(total - taxes)}</span></div>
-        <div class="sum-row"><span>Taxes & fees</span><span>${inr(taxes)}</span></div>
         <div class="sum-row sum-total"><span>Total <small>incl. taxes & fees</small></span><b>${inr(total)}</b></div>
       </section>` : ''}
       <button type="button" class="btn btn-primary btn-block" data-action="pdp-reserve"${ok ? '' : ' disabled'}>${ok ? `Reserve · ${inr(total)}` : items.length ? 'Add rooms to continue' : 'Select a room'}</button>
-      <p class="sum-note">${icon('check', 14)}${items.length && !allFlex ? 'Includes a non-refundable rate' : `Free cancellation until ${cancelBy()}`}</p>
-      <p class="sum-note">${icon('sparkle', 14)}<span><b>onto price drop</b> activates once you book</span></p>
       </div>` : ''}`;
   }
 
