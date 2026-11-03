@@ -817,20 +817,22 @@ body.pdp-sheet-open .pdp-switcher { opacity: 0; pointer-events: none; }
 .cs-seg button.is-on small { color: var(--ink-strong); }
 .cs-seg button:disabled { opacity: .4; cursor: not-allowed; }
 /* free cancellation: a switch row */
-.cs-cancel { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 14px; border: 1px solid var(--line); text-align: left; transition: border-color .15s, background-color .15s; }
-.cs-cancel:hover:not(:disabled) { border-color: var(--line-strong); }
-.cs-cancel.is-on { background: var(--accent-soft); border-color: #0f8a6333; }
+/* free cancellation: a checkbox card hanging off the picked meal tile by a notch */
+.cs-cancel { position: relative; display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; align-items: center; gap: 12px; margin-top: 4px; padding: 11px 14px; border-radius: 14px; border: 1px solid var(--line); background: var(--surface); box-shadow: 0 2px 10px rgba(0,0,0,.08); text-align: left; }
+.cs-cancel::before { content: ''; position: absolute; top: -7px; left: var(--notch); width: 12px; height: 12px; transform: translateX(-50%) rotate(45deg); border-left: 1px solid var(--line); border-top: 1px solid var(--line); border-top-left-radius: 3px; background: var(--surface); transition: left .2s var(--ease); }
+.cs-cancel:hover:not(:disabled) .cs-box { border-color: var(--ink-muted); }
 .cs-cancel:disabled { cursor: default; }
+.cs-box { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 6px; border: 2px solid #d6d8dd; color: transparent; transition: background-color .15s, border-color .15s, color .15s; }
+.cs-cancel.is-on .cs-box { background: var(--accent); border-color: var(--accent); color: #fff; }
+.cs-cancel.is-on:disabled .cs-box { background: #a7d3c2; border-color: #a7d3c2; }
 .cs-cancel-text { display: flex; flex-direction: column; min-width: 0; }
-.cs-cancel-text b { font-size: .875rem; color: var(--ink-strong); }
+.cs-cancel-text b { font-size: .9375rem; color: var(--ink-strong); }
 .cs-cancel-text small { display: inline-flex; align-items: center; gap: 3px; font-size: .75rem; color: var(--ink-muted); }
 .cs-cancel.is-on:disabled .cs-cancel-text small { color: var(--accent); font-weight: 700; }
-.cs-fee { font-size: .8125rem; font-weight: 700; color: var(--ink-strong); white-space: nowrap; }
-.cs-switch { position: relative; width: 36px; height: 22px; border-radius: 999px; background: #d6d8dd; transition: background-color .2s; }
-.cs-switch::after { content: ''; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.25); transition: transform .2s var(--ease); }
-.cs-cancel.is-on .cs-switch { background: var(--accent); }
-.cs-cancel.is-on .cs-switch::after { transform: translateX(14px); }
-.cs-cancel.is-on:disabled .cs-switch { opacity: .55; }
+.cs-fee { font-size: .875rem; font-weight: 700; color: var(--ink-muted); white-space: nowrap; }
+.cs-cancel.is-on .cs-fee { color: var(--ink-strong); }
+.cs-fee.is-struck, .cs-cancel.is-on .cs-fee.is-struck { color: var(--ink-muted); font-weight: 500; text-decoration: line-through; }
+@media (prefers-reduced-motion: reduce) { .cs-cancel::before { transition: none; } }
 /* price + rooms + done */
 .cs-foot { display: flex; align-items: center; gap: 10px; margin-top: auto; padding-top: 10px; border-top: 1px dashed var(--line); }
 .cs-price { display: flex; flex-direction: column; min-width: 0; margin-right: auto; }
@@ -2850,10 +2852,10 @@ window.DESTINATIONS = [
             }).join('')}
           </div>
         </div>
-        <button type="button" class="cs-cancel${on ? ' is-on' : ''}" role="switch" aria-checked="${on}" data-action="sp-fc" data-key="${it.key}"${included || f.has('refundable') ? ' disabled' : ''}>
+        <button type="button" class="cs-cancel${on ? ' is-on' : ''}" style="--notch: ${((MEALS.findIndex((m) => m.id === meal) + 0.5) / MEALS.length) * 100}%" role="checkbox" aria-checked="${on}" data-action="sp-fc" data-key="${it.key}"${included || f.has('refundable') ? ' disabled' : ''}>
+          <span class="cs-box" aria-hidden="true">${icon('check', 14)}</span>
           <span class="cs-cancel-text"><b>Free cancellation</b><small>${included ? `${icon('check', 12)}Included with meals` : `Full refund till ${cancelBy()}`}</small></span>
-          ${included ? '' : `<span class="cs-fee">+${inr(fee)}</span>`}
-          <span class="cs-switch" aria-hidden="true"></span>
+          <span class="cs-fee${included ? ' is-struck' : ''}">+${inr(fee)}</span>
         </button>
         <div class="cs-foot">
           <div class="cs-price"><b>${inr(it.perNight * it.qty * nights)}</b><small>${plural(it.qty, 'room')} · ${plural(nights, 'night')}</small></div>
