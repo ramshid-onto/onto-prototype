@@ -866,6 +866,15 @@ body.pdp-sheet-open .pdp-switcher { opacity: 0; pointer-events: none; }
   .trip-buy .opt-price { align-items: flex-start; text-align: left; }
 }
 
+/* E · Best match: per-room rates; mismatches are labelled and grouped at the end */
+.match-divider { margin: 12px 0 -4px; font-size: .875rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-muted); }
+.trip-terms .warn { color: #b45309; font-weight: 700; }
+.trip-terms .warn svg { color: currentColor; }
+.trip-terms small { font-weight: 500; }
+.match-more { align-self: flex-start; padding: 0; }
+.match-only { font-size: .8125rem; color: var(--ink-muted); }
+.room--match .opts { grid-column: 1 / -1; margin: 0 -8px -8px; }
+
 </style>
 </head>
 <body data-layout="classic">
@@ -2514,6 +2523,19 @@ window.DESTINATIONS = [
     return { ...rt, meal: rt.mealId !== 'none', name: m.title, factor: 1 + m.add + (rt.refundable && !cancelIncluded(rt.mealId) ? CANCEL_ADD : 0) };
   });
 
+  // E · Best match: each room has its own rate plans, like real supplier data.
+  // 'incl' = free cancellation included, 'fee' = cancellation costs extra, 'nr' = non-refundable.
+  const ROOM_RATE_PLANS = {
+    deluxe: [['none', 'nr'], ['none', 'fee'], ['bb', 'incl'], ['hb', 'incl'], ['ai', 'incl']],
+    premium: [['none', 'nr'], ['bb', 'nr'], ['bb', 'fee']],
+    family: [['none', 'nr'], ['bb', 'nr'], ['hb', 'nr']],
+    presidential: [['ai', 'incl']],
+  };
+  const PLAN_RATES = Object.entries(ROOM_RATE_PLANS).flatMap(([roomId, plans]) => plans.map(([mealId, fc]) => {
+    const m = MEALS.find((x) => x.id === mealId);
+    return { id: `${roomId}-${mealId}-${fc}`, roomId, mealId, meal: mealId !== 'none', refundable: fc !== 'nr', cancelFee: fc === 'fee', name: m.title, factor: 1 + m.add + (fc === 'fee' ? CANCEL_ADD : 0) };
+  }));
+
   const AMENITY_GROUPS = [
     { title: 'Popular', icon: 'sparkle', items: ['Outdoor pool', 'Free WiFi', 'Spa', 'Restaurant', 'Free parking', 'Airport shuttle', 'Fitness centre', 'Air conditioning'] },
     { title: 'Food & drink', icon: 'food', items: ['All-day dining restaurant', 'Rooftop bar', 'Breakfast buffet', '24-hour room service', 'Special diet menus'] },
@@ -2524,14 +2546,15 @@ window.DESTINATIONS = [
   ];
 
   /* ------------------------------------------------------------------ state */
-  const ROOM_LAYOUTS = [['compact', 'A · Compact'], ['sheet', 'B · Card sheet'], ['sheet2', 'C · Card sheet, 2-up'], ['trip', 'D · Trip options']];
+  const ROOM_LAYOUTS = [['compact', 'A · Compact'], ['sheet', 'B · Card sheet'], ['sheet2', 'C · Card sheet, 2-up'], ['trip', 'D · Trip options'], ['match', 'E · Best match']];
   let savedLayout = null;
   try { savedLayout = localStorage.getItem('onto-room-layout'); } catch {}
   const pdp = {
     hotel: null, sel: new Map(), roomFilter: new Set(), amenitiesOpen: false, mobileSummary: false,
     roomLayout: ROOM_LAYOUTS.some(([id]) => id === savedLayout) ? savedLayout : 'compact',
     sheet: null, // B / C: id of the room whose options sheet is open
-    trip: { meal: 'none', refundable: true }, // D: meals + cancellation chosen once for the whole stay
+    trip: { meal: 'none', refundable: true }, // D / E: meals + cancellation chosen once for the whole stay (E: as preferences)
+    ratesOpen: new Set(), // E: rooms showing all their rates
     sheetIn: false, // B / C: play the slide-up only on the render that opens the sheet
   };
 
@@ -2539,7 +2562,7 @@ window.DESTINATIONS = [
   const roomsNeeded = (r) => { const p = party(); return Math.max(1, Math.ceil(p.adults / r.maxAdults), Math.ceil(p.total / r.maxGuests)); };
   const priceOf = (r, rate) => Math.round(pdp.hotel.perNight * r.factor * rate.factor);
   const roomById = (id) => ROOMS.find((r) => r.id === id);
-  const rateById = (id) => RATES.find((r) => r.id === id);
+  const rateById = (id) => RATES.find((r) => r.id === id) || PLAN_RATES.find((r) => r.id === id);
   const rateFor = (c) => rateById(`${c.meal}-${c.refundable || cancelIncluded(c.meal) ? 'fc' : 'nr'}`);
   const cancelBy = () => fmtDay(isoDate(new Date(parseDate(state.stay.checkIn).getTime() - 2 * DAY)));
   const partyLabel = () => {
@@ -2614,18 +2637,19 @@ window.DESTINATIONS = [
 
   function roomFiltersHTML() {
     const f = pdp.roomFilter;
-    const trip = pdp.roomLayout === 'trip';
+    const trip = pdp.roomLayout === 'trip' || pdp.roomLayout === 'match';
     const filters = [['fits', `Fits ${plural(party().total, 'guest')} in 1 room`], ...(trip ? [] : [['refundable', 'Free cancellation'], ['meal', 'Breakfast included']])];
     return (trip ? tripBarHTML() : '') + filters.map(([id, label]) => `<button type="button" class="chip${f.has(id) ? ' is-selected' : ''}" aria-pressed="${f.has(id)}" data-action="room-filter" data-id="${id}">${f.has(id) ? icon('check', 14) : ''}${esc(label)}</button>`).join('');
   }
 
   function roomListHTML() {
     const list = ROOMS.filter((r) => !pdp.roomFilter.has('fits') || roomsNeeded(r) === 1);
+    if (pdp.roomLayout === 'match') return matchListHTML(list);
     const renderRoom = { compact: roomCompactHTML, sheet: roomSheetHTML, sheet2: roomSheetHTML, trip: roomTripHTML }[pdp.roomLayout];
     return list.map((r) => renderRoom(r)).join('') || '<p class="rooms-empty">No rooms match these filters.</p>';
   }
 
-  const roomsSub = () => (pdp.roomLayout === 'trip'
+  const roomsSub = () => (pdp.roomLayout === 'trip' || pdp.roomLayout === 'match'
     ? `Prices are for your whole stay: ${plural(nightsOf(state.stay), 'night')}, ${partyLabel()}. Taxes & fees included.`
     : 'Prices are per room, per night, and include taxes & fees.');
 
@@ -2680,7 +2704,7 @@ window.DESTINATIONS = [
       <div class="opt${qty ? ' is-selected' : ''}">
         <div class="opt-main">
           <b>${rateTitle(rt)}</b>
-          <span class="${rt.refundable ? 'good' : 'muted'}">${rt.refundable ? `${icon('check', 14)}Free cancellation until ${cancelBy()}` : `${icon('x', 14)}Non-refundable`}</span>
+          <span class="${rt.refundable ? 'good' : 'muted'}">${rt.refundable ? `${icon('check', 14)}Free cancellation until ${cancelBy()}${rt.cancelFee ? ' (paid add-on)' : ''}` : `${icon('x', 14)}Non-refundable`}</span>
         </div>
         <div class="opt-price"><b>${inr(price)}<small> /night</small></b><small>${inr(price * nights)} for ${plural(nights, 'night')}</small></div>
         <div class="opt-action">${qtyControlHTML(r, rt, need)}</div>
@@ -2732,8 +2756,12 @@ window.DESTINATIONS = [
 
   function tripBarHTML() {
     const t = pdp.trip;
-    const included = cancelIncluded(t.meal);
+    const match = pdp.roomLayout === 'match';
+    const included = !match && cancelIncluded(t.meal);
     const on = included || t.refundable;
+    const sub = match
+      ? (on ? 'Show rates I can cancel for free' : "I don't need to cancel")
+      : included ? `${icon('check', 12)}Included with ${TRIP_MEALS[t.meal].toLowerCase()}` : on ? `Full refund till ${cancelBy()}` : 'Off · cheaper, but no refunds';
     return `
       <div class="trip-bar">
         <div class="trip-group">
@@ -2743,7 +2771,7 @@ window.DESTINATIONS = [
           </div>
         </div>
         <button type="button" class="cs-cancel trip-cancel${on ? ' is-on' : ''}" role="switch" aria-checked="${on}" data-action="trip-fc"${included ? ' disabled' : ''}>
-          <span class="cs-cancel-text"><b>Free cancellation</b><small>${included ? `${icon('check', 12)}Included with ${TRIP_MEALS[t.meal].toLowerCase()}` : on ? `Full refund till ${cancelBy()}` : 'Off · cheaper, but no refunds'}</small></span>
+          <span class="cs-cancel-text"><b>Free cancellation</b><small>${sub}</small></span>
           <span class="cs-switch" aria-hidden="true"></span>
         </button>
       </div>`;
@@ -2773,6 +2801,69 @@ window.DESTINATIONS = [
             ? `<span class="trip-selected">${icon('check', 16)}Selected</span>`
             : `<button type="button" class="btn btn-primary btn-sm" data-action="trip-select" data-room="${r.id}"${soldOut ? ' disabled' : ''}>Select</button>`}
         </div>
+      </article>`;
+  }
+
+  // E · Best match: the bar holds preferences; each card shows that room's closest rate and says where it falls short.
+  const ratesOf = (r) => PLAN_RATES.filter((rt) => rt.roomId === r.id);
+  const mealIdx = (id) => MEALS.findIndex((m) => m.id === id);
+  const scoreRate = (r, rt) => {
+    const t = pdp.trip;
+    return { rt, mealMiss: rt.mealId !== t.meal, fcMiss: t.refundable && !rt.refundable, dist: Math.abs(mealIdx(rt.mealId) - mealIdx(t.meal)), price: priceOf(r, rt) };
+  };
+  function bestRate(r) {
+    return ratesOf(r)
+      .map((rt) => scoreRate(r, rt))
+      .sort((a, b) => (a.mealMiss * 2 + a.fcMiss) - (b.mealMiss * 2 + b.fcMiss) || a.dist - b.dist || a.price - b.price)[0];
+  }
+  const cancelFee = (r) => Math.round(pdp.hotel.perNight * r.factor * CANCEL_ADD);
+
+  function matchListHTML(list) {
+    const rows = list.map((r) => {
+      const picked = selection().find((it) => it.room.id === r.id);
+      return { r, m: picked ? scoreRate(r, picked.rate) : bestRate(r) };
+    });
+    const ok = rows.filter(({ m }) => !m.mealMiss && !m.fcMiss);
+    const off = rows.filter(({ m }) => m.mealMiss || m.fcMiss);
+    if (!rows.length) return '<p class="rooms-empty">No rooms match these filters.</p>';
+    return ok.map(({ r, m }) => roomMatchHTML(r, m)).join('')
+      + (off.length ? `<h3 class="match-divider">${ok.length ? "Don't fully match your choices" : 'No room matches exactly, closest options'}</h3>${off.map(({ r, m }) => roomMatchHTML(r, m)).join('')}` : '');
+  }
+
+  function roomMatchHTML(r, m) {
+    const t = pdp.trip, rt = m.rt;
+    const need = roomsNeeded(r);
+    const nights = nightsOf(state.stay);
+    const perNight = priceOf(r, rt);
+    const p = party();
+    const soldOut = need > r.left;
+    const picked = selection().filter((it) => it.room.id === r.id);
+    const selected = picked.length > 0;
+    const open = pdp.ratesOpen.has(r.id);
+    const all = ratesOf(r);
+    const fit = need === 1 ? `1 room fits all ${p.total}` : `${need} rooms for ${p.total} guests`;
+    const meal = m.mealMiss
+      ? `<span class="warn">${icon('food', 14)}${TRIP_MEALS[t.meal]} not offered · ${esc(rt.name.toLowerCase())}</span>`
+      : `<span>${icon(rt.meal ? 'food' : 'bed', 14)}${esc(rt.meal ? rt.name : 'Room only')}</span>`;
+    const cancel = rt.refundable
+      ? `<span class="good">${icon('check', 14)}Free cancellation${rt.cancelFee ? ` <small>(+${inr(cancelFee(r))}/night)</small>` : rt.meal ? ' included' : ''}</span>`
+      : m.fcMiss ? `<span class="warn">${icon('x', 14)}Non-refundable only for this room</span>` : `<span class="muted">${icon('x', 14)}Non-refundable</span>`;
+    return `
+      <article class="room room--trip room--match${selected ? ' is-selected' : ''}${m.mealMiss || m.fcMiss ? ' is-off' : ''}" data-room="${r.id}">
+        <div class="room-media">${photoButtonHTML(r)}</div>
+        <div class="trip-info">
+          <h3 class="room-name">${esc(r.name)}</h3>${factsHTML(r)}
+          <p class="trip-fit${need > 1 ? ' is-multi' : ''}">${icon('users', 14)}${soldOut ? `Only ${r.left} left, not enough for your group` : fit}</p>
+          <p class="trip-terms">${meal}<span class="dot-sep">·</span>${cancel}</p>
+          ${all.length > 1 ? `<button type="button" class="link-btn match-more" data-action="match-rates" data-room="${r.id}" aria-expanded="${open}">${open ? 'Hide rates' : `See all ${all.length} rates`}</button>` : '<span class="match-only">Only rate for this room</span>'}
+        </div>
+        <div class="trip-buy">
+          <div class="opt-price"><b>${inr(perNight * need * nights)}</b><small>${need > 1 ? `${need} rooms · ` : ''}${plural(nights, 'night')}</small><small>${inr(perNight)} /room /night</small></div>
+          ${selected
+            ? `<span class="trip-selected">${icon('check', 16)}Selected</span>`
+            : `<button type="button" class="btn btn-primary btn-sm" data-action="match-select" data-room="${r.id}" data-rate="${rt.id}"${soldOut ? ' disabled' : ''}>Select</button>`}
+        </div>
+        ${open ? `<div class="opts">${all.map((x) => optRowHTML(r, x, need, nights)).join('')}</div>` : ''}
       </article>`;
   }
 
@@ -3096,12 +3187,19 @@ window.DESTINATIONS = [
       case 'trip-meal': case 'trip-fc': {
         if (act === 'trip-meal') pdp.trip.meal = a.dataset.meal;
         else pdp.trip.refundable = !pdp.trip.refundable;
-        // Whatever's already booked follows the new choice.
-        const rt = tripRate();
-        pdp.sel = new Map(selection().map((it) => [`${it.room.id}|${rt.id}`, it.qty]));
+        // Whatever's already booked follows the new choice (E: that room's new best match).
+        pdp.sel = new Map(selection().map((it) => [`${it.room.id}|${pdp.roomLayout === 'match' ? bestRate(it.room).rt.id : tripRate().id}`, it.qty]));
         refreshDynamic();
         break;
       }
+      case 'match-select':
+        pdp.sel = new Map([[`${room.id}|${a.dataset.rate}`, roomsNeeded(room)]]);
+        refreshDynamic();
+        break;
+      case 'match-rates':
+        pdp.ratesOpen.has(room.id) ? pdp.ratesOpen.delete(room.id) : pdp.ratesOpen.add(room.id);
+        paintRoomList();
+        break;
       case 'trip-select':
         // One room type per booking here: picking a room replaces the previous one.
         pdp.sel = new Map([[`${room.id}|${tripRate().id}`, roomsNeeded(room)]]);
@@ -3201,12 +3299,16 @@ window.DESTINATIONS = [
     try { localStorage.setItem('onto-room-layout', pdp.roomLayout); } catch {}
     $$('[data-room-layout]', switcher).forEach((x) => x.setAttribute('aria-checked', String(x === b)));
     pdp.sheet = null;
-    if (pdp.roomLayout === 'trip') {
-      const first = selection()[0];
+    const first = selection()[0];
+    if (pdp.roomLayout === 'trip' || pdp.roomLayout === 'match') {
       if (first) pdp.trip = { meal: first.rate.mealId, refundable: first.rate.refundable };
       pdp.roomFilter.delete('refundable');
       pdp.roomFilter.delete('meal');
     }
+    // E's rates are per room; other layouts share one rate list, so map the booking across.
+    pdp.sel = new Map(selection().map((it) => [`${it.room.id}|${pdp.roomLayout === 'match'
+      ? bestRate(it.room).rt.id
+      : rateFor({ meal: it.rate.mealId, refundable: it.rate.refundable }).id}`, it.qty]));
     refreshDynamic();
     const rooms = $('#pdp-rooms');
     if (rooms) {
