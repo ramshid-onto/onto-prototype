@@ -841,8 +841,6 @@ body.pdp-sheet-open .pdp-switcher { opacity: 0; pointer-events: none; }
 .cs-qty { gap: 6px; }
 .cs-qty button { width: 28px; height: 28px; font-size: 16px; }
 .cs-foot .btn-sm { padding: 8px 14px; }
-/* B / C: "added" badge sits on the photo so selecting never changes the card height */
-.cs-added { position: absolute; top: 18px; right: 18px; z-index: 2; display: inline-flex; align-items: center; gap: 4px; padding: 5px 10px; border-radius: 999px; background: var(--accent); color: #fff; font-size: .75rem; font-weight: 700; box-shadow: var(--shadow-card); pointer-events: none; }
 
 
 
@@ -2813,7 +2811,6 @@ window.DESTINATIONS = [
     return `
       <article class="room room--grid room--sheet${picked.length ? ' is-selected' : ''}${sheet ? ' has-sheet' : ''}" data-room="${r.id}">
         ${pdp.roomLayout === 'sheet2' ? photoCarouselHTML(r) : photoButtonHTML(r)}
-        ${picked.length ? `<span class="cs-added">${icon('check', 14)}${plural(picked.reduce((n, it) => n + it.qty, 0), 'room')} added</span>` : ''}
         <div class="grid-body">
           <h3 class="room-name">${esc(r.name)}</h3>${factsHTML(r)}
           <div class="grid-foot">
