@@ -803,13 +803,18 @@ body.pdp-sheet-open .pdp-switcher { opacity: 0; pointer-events: none; }
 .cs-group { display: flex; flex-direction: column; gap: 6px; }
 .cs-label { font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-muted); }
 /* meals: one row of tabs */
-.cs-seg { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 2px; padding: 3px; border-radius: 14px; background: var(--page); border: 1px solid var(--line); }
-.cs-seg button { display: flex; flex-direction: column; align-items: center; gap: 1px; min-width: 0; padding: 7px 2px; border-radius: 11px; color: var(--ink-muted); transition: background-color .15s, color .15s, box-shadow .15s; }
-.cs-seg b { font-size: .8125rem; white-space: nowrap; }
-.cs-seg small { font-size: .6875rem; white-space: nowrap; }
-.cs-seg button:hover:not(:disabled):not(.is-on) { color: var(--ink-strong); }
-.cs-seg button.is-on { background: var(--surface); color: var(--ink-strong); box-shadow: 0 1px 3px rgba(0,0,0,.12), 0 0 0 1px var(--line); }
-.cs-seg button.is-on small { color: var(--accent); font-weight: 700; }
+/* meals: four separate tile cards; the picked one is raised and white */
+.cs-seg { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.cs-seg button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-width: 0; min-height: 58px; padding: 8px 2px; border-radius: 12px; border: 1px solid var(--line); background: var(--page); color: var(--ink-muted); transition: background-color .15s, border-color .15s, color .15s, box-shadow .15s; }
+.cs-seg b { font-size: .875rem; font-weight: 500; white-space: nowrap; }
+.cs-seg small { font-size: .75rem; white-space: nowrap; }
+.cs-seg button:hover:not(:disabled):not(.is-on) { border-color: #c4c7cd; color: var(--ink); }
+.cs-seg button.is-on { background: var(--surface); border-color: var(--line); box-shadow: 0 2px 10px rgba(0,0,0,.12); }
+.cs-seg button:focus:not(:focus-visible) { outline: none; }
+.card-sheet { container-type: inline-size; }
+@container (max-width: 320px) { .cs-seg { gap: 4px; } .cs-seg b { font-size: .8125rem; } .cs-seg small { font-size: .6875rem; } }
+.cs-seg button.is-on b { font-weight: 700; color: var(--ink); }
+.cs-seg button.is-on small { color: var(--ink-strong); }
 .cs-seg button:disabled { opacity: .4; cursor: not-allowed; }
 /* free cancellation: a switch row */
 .cs-cancel { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 14px; border: 1px solid var(--line); text-align: left; transition: border-color .15s, background-color .15s; }
