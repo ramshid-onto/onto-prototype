@@ -756,6 +756,9 @@ body.pdp-sheet-open .pdp-switcher { opacity: 0; pointer-events: none; }
 .opt-price b small, .opt-price small { font-size: .8125rem; font-weight: 500; color: var(--ink-muted); }
 .opt-action { display: flex; flex-direction: column; align-items: stretch; gap: 4px; }
 .btn-sm { padding: 10px 16px; font-size: .875rem; border-radius: 999px; }
+/* outlined secondary CTA (Select room, Book) */
+.btn-outline { border-color: var(--ink-strong); }
+.btn-outline:hover:not(:disabled) { background: var(--ink-strong); color: #fff; }
 .room.is-selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), var(--shadow-card); }
 
 /* A · Compact */
@@ -867,14 +870,30 @@ body.pdp-sheet-open .pdp-switcher { opacity: 0; pointer-events: none; }
 .rate-price b { font-size: 1.5rem; }
 .rate-price span { font-size: .875rem; color: var(--ink-muted); }
 .rate-tax { margin-top: -4px; font-size: .8125rem; color: var(--ink-muted); }
-.rate-book { width: 100%; margin-top: 6px; border-color: var(--ink-strong); }
-.rate-book:hover { background: var(--ink-strong); color: #fff; }
+.rate-book { width: 100%; margin-top: 6px; }
 .rate-qty { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
 @media (max-width: 639px) {
   .rr-head { grid-template-columns: 1fr; gap: 10px; }
   .rr-info { padding: 0 8px; }
   .rate-card { flex-basis: 78%; }
 }
+
+/* C: room photo carousel (dots by default, arrows on hover) */
+.pc { position: relative; }
+.pc-track { display: flex; width: 100%; height: 100%; transition: transform .35s var(--ease); }
+.pc-track img { flex: 0 0 100%; min-width: 0; }
+.pc-frame:hover img { transform: none; }
+@media (prefers-reduced-motion: reduce) { .pc-track { transition: none; } }
+.pc-nav { position: absolute; top: 50%; z-index: 1; display: grid; place-items: center; width: 32px; height: 32px; transform: translateY(-50%); border-radius: 999px; background: #ffffffeb; color: var(--ink-strong); box-shadow: 0 2px 8px rgba(0,0,0,.18); opacity: 0; transition: opacity .15s, background-color .15s; }
+.pc-nav:hover { background: #fff; }
+.pc-nav.prev { left: 10px; }
+.pc-nav.next { right: 10px; }
+.pc-nav[hidden] { display: none; }
+.pc:hover .pc-nav, .pc-nav:focus-visible { opacity: 1; }
+@media (hover: none) { .pc-nav { opacity: 1; } }
+.pc-dots { position: absolute; left: 50%; bottom: 10px; z-index: 1; display: flex; gap: 6px; transform: translateX(-50%); pointer-events: none; }
+.pc-dots span { width: 6px; height: 6px; border-radius: 999px; background: #ffffff8c; box-shadow: 0 0 2px rgba(0,0,0,.3); transition: background-color .2s, width .2s; }
+.pc-dots span.is-on { width: 16px; background: #fff; }
 
 </style>
 </head>
@@ -2541,6 +2560,7 @@ window.DESTINATIONS = [
     hotel: null, sel: new Map(), roomFilter: new Set(), amenitiesOpen: false, mobileSummary: false,
     roomLayout: ROOM_LAYOUTS.some(([id]) => id === savedLayout) ? savedLayout : 'compact',
     sheet: null, // B / C: id of the room whose options sheet is open
+    photoIdx: {}, // C: which photo each room card is showing
     sheetIn: false, // B / C: play the slide-up only on the render that opens the sheet
   };
 
@@ -2692,7 +2712,7 @@ window.DESTINATIONS = [
           <p class="rate-tax">Including taxes & fees</p>
           ${qty
             ? `<div class="rate-qty">${qtyControlHTML(r, rt, need)}</div>`
-            : `<button type="button" class="btn btn-secondary rate-book" data-action="rate-select" data-key="${key}" data-need="${Math.min(need, r.left)}">Book${need > 1 ? ` ${Math.min(need, r.left)} rooms` : ''}</button>`}
+            : `<button type="button" class="btn btn-secondary btn-outline rate-book" data-action="rate-select" data-key="${key}" data-need="${Math.min(need, r.left)}">Book${need > 1 ? ` ${Math.min(need, r.left)} rooms` : ''}</button>`}
         </div>
       </div>`;
   }
@@ -2762,13 +2782,28 @@ window.DESTINATIONS = [
   const fromPrice = (r) => { const rates = visibleRates(); return rates.length ? Math.min(...rates.map((rt) => priceOf(r, rt))) : null; };
 
   // B / C · Card sheet: "Select room" adds the room and slides its options up as a sheet inside the card (C: two cards per row).
+  // C: room photos as a carousel: dots by default, arrows on hover (none past the first / last photo).
+  function photoCarouselHTML(r) {
+    const n = r.images.length;
+    const i = Math.min(pdp.photoIdx[r.id] || 0, n - 1);
+    return `
+      <div class="pc">
+        <button type="button" class="room-photo pc-frame" data-action="room-details" data-room="${r.id}" aria-label="View ${esc(r.name)} photos and details">
+          <span class="pc-track" style="transform: translateX(-${i * 100}%)">${r.images.map((src, j) => imgTag(src, `${r.name} photo ${j + 1}`, '', 10 + ROOMS.indexOf(r) * 5 + j)).join('')}</span>
+        </button>
+        <button type="button" class="pc-nav prev" data-action="photo-nav" data-room="${r.id}" data-dir="-1" aria-label="Previous photo"${i === 0 ? ' hidden' : ''}>${icon('chevron-left', 18)}</button>
+        <button type="button" class="pc-nav next" data-action="photo-nav" data-room="${r.id}" data-dir="1" aria-label="Next photo"${i === n - 1 ? ' hidden' : ''}>${icon('chevron-right', 18)}</button>
+        <div class="pc-dots" aria-hidden="true">${r.images.map((_, j) => `<span${j === i ? ' class="is-on"' : ''}></span>`).join('')}</div>
+      </div>`;
+  }
+
   function roomSheetHTML(r) {
     const from = fromPrice(r);
     const picked = selection().filter((it) => it.room.id === r.id);
     const sheet = pdp.sheet === r.id && picked.length ? cardSheetHTML(picked[0]) : '';
     return `
       <article class="room room--grid room--sheet${picked.length ? ' is-selected' : ''}${sheet ? ' has-sheet' : ''}" data-room="${r.id}">
-        ${photoButtonHTML(r)}
+        ${pdp.roomLayout === 'sheet2' ? photoCarouselHTML(r) : photoButtonHTML(r)}
         ${picked.length ? `<span class="cs-added">${icon('check', 14)}${plural(picked.reduce((n, it) => n + it.qty, 0), 'room')} added</span>` : ''}
         <div class="grid-body">
           <h3 class="room-name">${esc(r.name)}</h3>${factsHTML(r)}
@@ -2776,7 +2811,7 @@ window.DESTINATIONS = [
             <div class="opt-price">${from ? `<small>From</small><b>${inr(from)}<small> /night</small></b>` : '<small>No options match</small>'}</div>
             ${picked.length
               ? `<button type="button" class="btn btn-secondary btn-sm" data-action="sheet-show" data-room="${r.id}">Edit options</button>`
-              : `<button type="button" class="btn btn-primary btn-sm" data-action="sheet-select" data-room="${r.id}"${from ? '' : ' disabled'}>Select room</button>`}
+              : `<button type="button" class="btn btn-secondary btn-outline btn-sm" data-action="sheet-select" data-room="${r.id}"${from ? '' : ' disabled'}>Select room</button>`}
           </div>
         </div>
         ${sheet}
@@ -3101,6 +3136,19 @@ window.DESTINATIONS = [
       }
       case 'sheet-show': pdp.sheet = room.id; pdp.sheetIn = true; paintRoomList(); break;
       case 'sheet-close': pdp.sheet = null; paintRoomList(); break;
+      case 'photo-nav': {
+        // Slide in place (no re-render) so the move animates.
+        const n = room.images.length;
+        const i = Math.max(0, Math.min(n - 1, (pdp.photoIdx[room.id] || 0) + +a.dataset.dir));
+        pdp.photoIdx[room.id] = i;
+        const box = a.closest('.pc');
+        $('.pc-track', box).style.transform = `translateX(-${i * 100}%)`;
+        $('.pc-nav.prev', box).hidden = i === 0;
+        $('.pc-nav.next', box).hidden = i === n - 1;
+        $$('.pc-dots span', box).forEach((d, j) => d.classList.toggle('is-on', j === i));
+        if (a.hidden) $(`.pc-nav.${a.classList.contains('prev') ? 'next' : 'prev'}`, box).focus();
+        break;
+      }
       case 'rates-scroll': {
         const row = a.parentElement.querySelector('.rr-row');
         row.scrollBy({ left: +a.dataset.dir * (row.querySelector('.rate-card').offsetWidth + 16), behavior: 'smooth' });
