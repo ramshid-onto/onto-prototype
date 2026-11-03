@@ -835,6 +835,26 @@ body.pdp-sheet-open .pdp-switcher { opacity: 0; pointer-events: none; }
 .cs-added { position: absolute; top: 18px; right: 18px; z-index: 2; display: inline-flex; align-items: center; gap: 4px; padding: 5px 10px; border-radius: 999px; background: var(--accent); color: #fff; font-size: .75rem; font-weight: 700; box-shadow: var(--shadow-card); pointer-events: none; }
 
 
+/* D · Compact, 2-up: A's cards two per row; photo on top, each option's price + button on its own line */
+.room-list--compact2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+@media (max-width: 639px) { .room-list--compact2 { grid-template-columns: 1fr; } }
+.room-list--compact2 .room { display: flex; flex-direction: column; }
+.room-list--compact2 .room-top { grid-template-columns: 1fr; gap: 12px; }
+.room-list--compact2 .room-photo { aspect-ratio: 16 / 9; height: auto; min-height: 0; }
+.room-list--compact2 .room-info { padding: 4px 12px 8px; }
+.room-list--compact2 .opts { flex: 1; }
+.room-list--compact2 .opt { grid-template-columns: minmax(0, 1fr) auto; gap: 10px 12px; padding: 14px 16px; }
+.room-list--compact2 .opt-main { grid-column: 1 / -1; }
+.room-list--compact2 .opt-price { align-items: flex-start; text-align: left; }
+.room-list--compact2 .opt-action { grid-column: auto; width: 150px; }
+/* narrow 2-up cards (small laptops): the button gets its own full-width line */
+.room-list--compact2 .room { container-type: inline-size; }
+@container (max-width: 400px) {
+  .room-list--compact2 .opt { grid-template-columns: minmax(0, 1fr); }
+  .room-list--compact2 .opt-action { width: auto; }
+  .room-list--compact2 .opt-price { flex-direction: row; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+}
+
 </style>
 </head>
 <body data-layout="classic">
@@ -2493,7 +2513,7 @@ window.DESTINATIONS = [
   ];
 
   /* ------------------------------------------------------------------ state */
-  const ROOM_LAYOUTS = [['compact', 'A · Compact'], ['sheet', 'B · Card sheet'], ['sheet2', 'C · Card sheet, 2-up']];
+  const ROOM_LAYOUTS = [['compact', 'A · Compact'], ['sheet', 'B · Card sheet'], ['sheet2', 'C · Card sheet, 2-up'], ['compact2', 'D · Compact, 2-up']];
   let savedLayout = null;
   try { savedLayout = localStorage.getItem('onto-room-layout'); } catch {}
   const pdp = {
@@ -2588,7 +2608,7 @@ window.DESTINATIONS = [
 
   function roomListHTML() {
     const list = ROOMS.filter((r) => !pdp.roomFilter.has('fits') || roomsNeeded(r) === 1);
-    const renderRoom = { compact: roomCompactHTML, sheet: roomSheetHTML, sheet2: roomSheetHTML }[pdp.roomLayout];
+    const renderRoom = { compact: roomCompactHTML, compact2: roomCompactHTML, sheet: roomSheetHTML, sheet2: roomSheetHTML }[pdp.roomLayout];
     return list.map((r) => renderRoom(r)).join('') || '<p class="rooms-empty">No rooms match these filters.</p>';
   }
 
@@ -2635,7 +2655,7 @@ window.DESTINATIONS = [
     return c;
   }
 
-  // A · Compact: one line per option.
+  // A · Compact: one line per option (D: same card, two per row).
   function optRowHTML(r, rt, need, nights) {
     const qty = pdp.sel.get(`${r.id}|${rt.id}`) || 0;
     const price = priceOf(r, rt);
