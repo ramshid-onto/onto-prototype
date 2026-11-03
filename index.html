@@ -855,7 +855,7 @@ body.pdp-sheet-open .pdp-switcher { opacity: 0; pointer-events: none; }
   .room-list--compact2 .opt-price { flex-direction: row; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
 }
 
-/* E · Room card: details + photo, meal tiles, cancellation checkbox, total + Book */
+/* E · Room card (2-up): details + photo, meal tiles, cancellation checkbox, total + Book */
 .room--card { display: flex; flex-direction: column; }
 .rc-top { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 20px; padding: 20px 20px 0; }
 .rc-details { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; min-width: 0; }
@@ -890,13 +890,27 @@ body.pdp-sheet-open .pdp-switcher { opacity: 0; pointer-events: none; }
 .rc-total small { color: var(--ink-muted); font-size: .8125rem; }
 .rc-foot .btn { flex-shrink: 0; padding: 12px 22px; }
 .rc-booked { flex-shrink: 0; display: inline-flex; align-items: center; gap: 6px; padding: 11px 18px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-weight: 700; }
-@media (max-width: 719px) {
-  .rc-top { grid-template-columns: 1fr; padding: 8px 8px 0; }
+/* two cards per row (one on phones); each card adapts to its own width */
+.room-list--card { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+@media (max-width: 639px) { .room-list--card { grid-template-columns: 1fr; } }
+.room--card { container-type: inline-size; }
+.rc-options { flex: 1; }
+@container (max-width: 640px) {
+  .rc-top { grid-template-columns: 1fr; gap: 14px; padding: 8px 8px 0; }
   .rc-photo { order: -1; }
-  .rc-details { padding: 4px 8px 0; }
+  .rc-details { padding: 0 8px; }
   .rc-options { padding: 16px; }
-  .rc-meals { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .rc-meals { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .rc-meal { min-height: 72px; }
   .rc-foot { padding: 14px 16px; }
+}
+@container (max-width: 380px) {
+  .rc-meal { padding: 10px 12px; }
+  .rc-meal b, .rc-meal span { font-size: .875rem; }
+  .rc-cancel { grid-template-columns: 24px minmax(0, 1fr); }
+  .rc-fee { grid-column: 2; }
+  .rc-foot { flex-direction: column; align-items: stretch; gap: 12px; }
+  .rc-foot .btn, .rc-booked { justify-content: center; }
 }
 
 </style>
@@ -2557,7 +2571,7 @@ window.DESTINATIONS = [
   ];
 
   /* ------------------------------------------------------------------ state */
-  const ROOM_LAYOUTS = [['compact', 'A · Compact'], ['sheet', 'B · Card sheet'], ['sheet2', 'C · Card sheet, 2-up'], ['compact2', 'D · Compact, 2-up'], ['card', 'E · Room card']];
+  const ROOM_LAYOUTS = [['compact', 'A · Compact'], ['sheet', 'B · Card sheet'], ['sheet2', 'C · Card sheet, 2-up'], ['compact2', 'D · Compact, 2-up'], ['card', 'E · Room card, 2-up']];
   let savedLayout = null;
   try { savedLayout = localStorage.getItem('onto-room-layout'); } catch {}
   const pdp = {
