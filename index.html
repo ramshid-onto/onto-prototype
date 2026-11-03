@@ -853,7 +853,6 @@ body.pdp-sheet-open .pdp-switcher { opacity: 0; pointer-events: none; }
 @media (hover: none) { .rr-nav { display: none; } }
 .rate-card { flex: 0 0 272px; scroll-snap-align: start; display: flex; flex-direction: column; gap: 12px; padding: 18px; border-radius: var(--r-lg); border: 1px solid var(--line); background: var(--surface); transition: border-color .15s, box-shadow .15s; }
 .rate-card.is-selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); background: #f6fcf9; }
-.rate-title { font-size: 1.125rem; font-weight: 700; line-height: 1.25; color: var(--ink-strong); }
 .rate-incl { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .rate-incl li { display: flex; align-items: flex-start; gap: 8px; font-size: .9375rem; color: var(--ink-strong); }
 .rate-incl svg { flex-shrink: 0; margin-top: 2px; }
@@ -863,15 +862,11 @@ body.pdp-sheet-open .pdp-switcher { opacity: 0; pointer-events: none; }
 .rate-incl .none { color: var(--ink-muted); }
 .rate-incl .none svg { color: var(--ink-muted); }
 .rr-nav[hidden] { display: none; }
-.rate-more { align-self: flex-start; padding: 0; }
 .rate-bottom { display: flex; flex-direction: column; gap: 6px; margin-top: auto; padding-top: 8px; }
-.rate-badge { align-self: flex-start; padding: 3px 10px; border-radius: 6px; background: #d9f2e3; color: #14532d; font-size: .75rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
-.rate-price { font-size: .8125rem; font-weight: 700; color: var(--ink-strong); }
-.rate-price b { font-size: 1.375rem; }
-.rate-price span { font-weight: 500; color: var(--ink-muted); }
-.rate-was { font-size: .875rem; }
-.rate-was s { color: var(--ink-muted); }
-.rate-was span { color: var(--accent); font-weight: 700; }
+.rate-price { display: flex; align-items: baseline; gap: 4px; color: var(--ink-strong); }
+.rate-price b { font-size: 1.5rem; }
+.rate-price span { font-size: .875rem; color: var(--ink-muted); }
+.rate-tax { margin-top: -4px; font-size: .8125rem; color: var(--ink-muted); }
 .rate-book { width: 100%; margin-top: 6px; }
 .rate-qty { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
 @media (max-width: 639px) {
@@ -2545,7 +2540,6 @@ window.DESTINATIONS = [
     hotel: null, sel: new Map(), roomFilter: new Set(), amenitiesOpen: false, mobileSummary: false,
     roomLayout: ROOM_LAYOUTS.some(([id]) => id === savedLayout) ? savedLayout : 'compact',
     sheet: null, // B / C: id of the room whose options sheet is open
-    perksOpen: new Set(), // D: rate cards showing all their inclusions ('roomId|rateId')
     sheetIn: false, // B / C: play the slide-up only on the render that opens the sheet
   };
 
@@ -2681,40 +2675,20 @@ window.DESTINATIONS = [
     return c;
   }
 
-  // D · Rate cards: room header, then a sideways row of rate cards (title, inclusions, price, Book).
-  const RATE_TITLES = { none: 'Room only', bb: 'Room with Breakfast', hb: 'Room with Breakfast & Dinner', ai: 'Room with All Meals' };
+  // D · Rate cards: room header, then a sideways row of rate cards (what's included, price, Book).
   const MEAL_LINE = { bb: 'Breakfast', hb: 'Breakfast and dinner', ai: 'Breakfast, lunch and dinner' };
-  const EXTRAS = {
-    none: ['Free WiFi'],
-    bb: ['Free WiFi', 'Welcome drink on arrival', 'Early check-in, subject to availability'],
-    hb: ['Free WiFi', 'Welcome drink on arrival', '10% off spa treatments'],
-    ai: ['Free WiFi', 'Welcome drink on arrival', '10% off spa treatments', 'Soft drinks with meals'],
-  };
-  // Dummy "was" prices so the cards can show a discount, like the live site.
-  const RATE_DEAL = { 'none-nr': [10], 'none-fc': [5], 'bb-fc': [5], 'hb-fc': [15, 'Luxury deal'], 'ai-fc': [8] };
-
   function rateCardHTML(r, rt, need) {
     const key = `${r.id}|${rt.id}`;
     const qty = pdp.sel.get(key) || 0;
-    const price = priceOf(r, rt);
-    const base = Math.round(price / 1.12);
-    const [off, badge] = RATE_DEAL[rt.id];
-    const was = Math.round(base / (1 - off / 100) / 100) * 100;
-    const extras = EXTRAS[rt.mealId];
-    const open = pdp.perksOpen.has(key);
     return `
       <div class="rate-card${qty ? ' is-selected' : ''}">
-        <h4 class="rate-title">${RATE_TITLES[rt.mealId]}</h4>
         <ul class="rate-incl">
-          ${rt.meal ? `<li class="yes">${icon('check', 16)}${MEAL_LINE[rt.mealId]}</li>` : `<li class="none">${icon('food', 16)}No meals included</li>`}
+          ${rt.meal ? `<li class="yes">${icon('check', 16)}${MEAL_LINE[rt.mealId]}</li>` : `<li class="none">${icon('bed', 16)}Room only</li>`}
           ${rt.refundable ? `<li class="yes">${icon('check', 16)}Free cancellation till ${cancelBy()}</li>` : `<li class="no">${icon('x', 16)}Non-refundable</li>`}
-          ${open ? extras.map((x) => `<li class="yes">${icon('check', 16)}${esc(x)}</li>`).join('') : ''}
         </ul>
-        <button type="button" class="link-btn rate-more" data-action="rate-perks" data-key="${key}" aria-expanded="${open}">${open ? 'Show less' : `+ ${plural(extras.length, 'inclusion')}`}</button>
         <div class="rate-bottom">
-          ${badge ? `<span class="rate-badge">${badge}</span>` : ''}
-          <p class="rate-price"><b>${inr(base)}</b> + ${inr(price - base)} taxes & fees <span>/night</span></p>
-          <p class="rate-was"><s>${inr(was)}</s> <span>${off}% off</span></p>
+          <p class="rate-price"><b>${inr(priceOf(r, rt))}</b><span>/night</span></p>
+          <p class="rate-tax">Including taxes & fees</p>
           ${qty
             ? `<div class="rate-qty">${qtyControlHTML(r, rt, need)}</div>`
             : `<button type="button" class="btn btn-primary rate-book" data-action="rate-select" data-key="${key}" data-need="${Math.min(need, r.left)}">Book${need > 1 ? ` ${Math.min(need, r.left)} rooms` : ''}</button>`}
@@ -3128,12 +3102,6 @@ window.DESTINATIONS = [
       }
       case 'sheet-show': pdp.sheet = room.id; pdp.sheetIn = true; paintRoomList(); break;
       case 'sheet-close': pdp.sheet = null; paintRoomList(); break;
-      case 'rate-perks': {
-        const k = a.dataset.key;
-        pdp.perksOpen.has(k) ? pdp.perksOpen.delete(k) : pdp.perksOpen.add(k);
-        paintRoomList();
-        break;
-      }
       case 'rates-scroll': {
         const row = a.parentElement.querySelector('.rr-row');
         row.scrollBy({ left: +a.dataset.dir * (row.querySelector('.rate-card').offsetWidth + 16), behavior: 'smooth' });
