@@ -758,7 +758,7 @@ body.pdp-sheet-open .pdp-switcher { opacity: 0; pointer-events: none; }
 .btn-sm { padding: 10px 16px; font-size: .875rem; border-radius: 999px; }
 .room.is-selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), var(--shadow-card); }
 
-/* B · Compact */
+/* A · Compact */
 .room--compact .room-top { padding: 8px; }
 @media (min-width: 720px) { .room--compact .room-top { grid-template-columns: 200px minmax(0, 1fr); } .room--compact .room-photo { min-height: 130px; } }
 .opts { border-top: 1px solid var(--line); }
@@ -775,13 +775,12 @@ body.pdp-sheet-open .pdp-switcher { opacity: 0; pointer-events: none; }
   .opt-action { grid-column: 1 / -1; }
 }
 
-/* C · Toggles */
+/* price + action footer (B's options dialog) */
 .toggle-foot { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: auto; padding-top: 14px; border-top: 1px dashed var(--line); }
 .toggle-foot .opt-price { align-items: flex-start; text-align: left; }
 .toggle-foot .opt-action { width: 170px; }
-.room--toggle .room-info { padding-bottom: 12px; padding-right: 12px; }
 
-/* D · Grid */
+/* B · Grid */
 .room-list--grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 20px; }
 .room--grid { display: flex; flex-direction: column; padding: 8px; }
 .room--grid .room-photo { aspect-ratio: 3 / 2; height: auto; min-height: 0; }
@@ -792,8 +791,7 @@ body.pdp-sheet-open .pdp-switcher { opacity: 0; pointer-events: none; }
 .grid-foot .opt-price { align-items: flex-start; text-align: left; }
 .is-options .pdp-modal-box { width: min(640px, 100%); }
 
-/* C · Select first: the card's text area swaps to the options */
-.room--configure.is-configuring { border-color: var(--ink-strong); box-shadow: 0 0 0 1px var(--ink-strong), var(--shadow-pop); }
+/* B · options panel */
 .cfg { display: flex; flex-direction: column; gap: 14px; animation: cfg-in .22s var(--ease); }
 @keyframes cfg-in { from { opacity: 0; transform: translateX(12px); } }
 @media (prefers-reduced-motion: reduce) { .cfg { animation: none; } }
@@ -807,7 +805,7 @@ body.pdp-sheet-open .pdp-switcher { opacity: 0; pointer-events: none; }
 .cfg-actions { display: flex; gap: 8px; }
 @media (max-width: 480px) { .cfg .toggle-foot { flex-direction: column; align-items: stretch; } .cfg-actions .btn { flex: 1; } }
 
-/* ------------- Meals tiles + free-cancellation add-on (B, C, D, E) */
+/* ------------- Meals tiles + free-cancellation add-on (B, C) */
 .mc { display: flex; flex-direction: column; gap: 10px; }
 .mc-label { font-weight: 700; color: var(--ink-strong); }
 .mc-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
@@ -839,10 +837,10 @@ body.pdp-sheet-open .pdp-switcher { opacity: 0; pointer-events: none; }
 /* two tiles per row on phones; the notch follows the column */
 @media (max-width: 480px) { .mc-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } .mc-cancel::before { left: var(--n2); } }
 
-/* D dialog wrapper */
+/* B dialog wrapper */
 .cfg-dialog { padding: 24px 24px 20px; }
 
-/* E · Side panel: grid cards; meals + cancellation are picked in the booking summary */
+/* C · Side panel: grid cards; meals + cancellation are picked in the booking summary */
 .room-list--side { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 20px; }
 .sum-items li.is-new { animation: sum-flash 1.2s var(--ease); }
 @keyframes sum-flash { 0%, 30% { background: var(--accent-soft); box-shadow: 0 0 0 8px var(--accent-soft); } }
@@ -2521,15 +2519,13 @@ window.DESTINATIONS = [
   ];
 
   /* ------------------------------------------------------------------ state */
-  const ROOM_LAYOUTS = [['compact', 'A · Compact'], ['toggle', 'B · Toggles'], ['configure', 'C · Select first'], ['grid', 'D · Grid'], ['side', 'E · Side panel']];
+  const ROOM_LAYOUTS = [['compact', 'A · Compact'], ['grid', 'B · Grid'], ['side', 'C · Side panel']];
   let savedLayout = null;
   try { savedLayout = localStorage.getItem('onto-room-layout'); } catch {}
-  if (savedLayout === 'overlay') savedLayout = 'side'; // E used to be "Grid overlay"
   const pdp = {
     hotel: null, sel: new Map(), roomFilter: new Set(), amenitiesOpen: false, mobileSummary: false,
     roomLayout: ROOM_LAYOUTS.some(([id]) => id === savedLayout) ? savedLayout : 'compact',
-    choice: {}, // Toggles layout: { [roomId]: { meal, refundable } }
-    config: null, // C / D: { roomId, meal, refundable, qty } while a room's options are open
+    config: null, // B: { roomId, meal, refundable, qty } while the options dialog is open
   };
 
   const party = () => ({ adults: state.stay.adults, children: state.stay.children, total: state.stay.adults + state.stay.children });
@@ -2617,7 +2613,7 @@ window.DESTINATIONS = [
 
   function roomListHTML() {
     const list = ROOMS.filter((r) => !pdp.roomFilter.has('fits') || roomsNeeded(r) === 1);
-    const renderRoom = { compact: roomCompactHTML, toggle: roomToggleHTML, configure: roomConfigureHTML, grid: roomGridHTML, side: roomSideHTML }[pdp.roomLayout];
+    const renderRoom = { compact: roomCompactHTML, grid: roomGridHTML, side: roomSideHTML }[pdp.roomLayout];
     return list.map((r) => renderRoom(r)).join('') || '<p class="rooms-empty">No rooms match these filters.</p>';
   }
 
@@ -2661,7 +2657,7 @@ window.DESTINATIONS = [
       : `<button type="button" class="btn btn-secondary btn-select" data-action="rate-select" data-key="${key}" data-need="${Math.min(need, r.left)}">Select${need > 1 ? ` ${Math.min(need, r.left)} rooms` : ''}</button>`;
   }
 
-  /* ---- Meals tiles + free-cancellation add-on (used by B, C, D and E) ---- */
+  /* ---- Meals tiles + free-cancellation add-on (used by B and C) ---- */
   // Keeps a { meal, refundable } choice valid for the active filters.
   function applyFilters(c) {
     if (pdp.roomFilter.has('meal') && c.meal === 'none') c.meal = 'bb';
@@ -2733,40 +2729,7 @@ window.DESTINATIONS = [
       </article>`;
   }
 
-  // B · Toggles: meal tiles + cancellation right on the card; one price.
-  function toggleChoice(r) {
-    // A selected option for this room always wins, so the tiles match the summary.
-    const picked = [...pdp.sel.keys()].find((k) => k.startsWith(r.id + '|') && pdp.sel.get(k) > 0);
-    let c = pdp.choice[r.id];
-    if (picked) { const rt = rateById(picked.split('|')[1]); c = { meal: rt.mealId, refundable: rt.refundable }; }
-    else if (!c) c = { meal: 'none', refundable: false };
-    pdp.choice[r.id] = applyFilters(c);
-    return c;
-  }
-
-  function roomToggleHTML(r) {
-    const c = toggleChoice(r);
-    const rt = rateFor(c);
-    const price = priceOf(r, rt);
-    const nights = nightsOf(state.stay);
-    const qty = pdp.sel.get(`${r.id}|${rt.id}`) || 0;
-    return `
-      <article class="room room--toggle${qty ? ' is-selected' : ''}" data-room="${r.id}">
-        <div class="room-top">
-          <div class="room-media">${photoButtonHTML(r)}</div>
-          <div class="room-info">
-            <h3 class="room-name">${esc(r.name)}</h3>${factsHTML(r)}
-            ${mealConfigHTML(r, c, 'tg')}
-            <div class="toggle-foot">
-              <div class="opt-price"><b>${inr(price)}<small> /night</small></b><small>${inr(price * nights)} for ${plural(nights, 'night')}</small></div>
-              <div class="opt-action">${qtyControlHTML(r, rt, roomsNeeded(r))}</div>
-            </div>
-          </div>
-        </div>
-      </article>`;
-  }
-
-  /* ---- Options panel: C (in the card's text area), D (dialog) ---- */
+  /* ---- Options panel (B's dialog) ---- */
   const fromPrice = (r) => { const rates = visibleRates(); return rates.length ? Math.min(...rates.map((rt) => priceOf(r, rt))) : null; };
 
   function configPanelHTML(r, cfg, editing) {
@@ -2798,30 +2761,7 @@ window.DESTINATIONS = [
         </div>
       </div>`;
   }
-  const configFor = (r) => (pdp.config && pdp.config.roomId === r.id ? pdp.config : null);
-
-  // C · Select first: "Select" swaps the card's text area for the options.
-  function roomConfigureHTML(r) {
-    const picked = selection().filter((it) => it.room.id === r.id);
-    const cfg = configFor(r);
-    const from = fromPrice(r);
-    const summary = `
-      <h3 class="room-name">${esc(r.name)}</h3>${factsHTML(r)}
-      ${pickedLineHTML(picked)}
-      <div class="toggle-foot">
-        <div class="opt-price">${from ? `<small>From</small><b>${inr(from)}<small> /night</small></b>` : '<small>No options match</small>'}</div>
-        <div class="opt-action"><button type="button" class="btn ${picked.length ? 'btn-secondary' : 'btn-primary'} btn-sm" data-action="cfg-open" data-room="${r.id}"${from ? '' : ' disabled'}>${picked.length ? 'Change' : 'Select'}</button></div>
-      </div>`;
-    return `
-      <article class="room room--toggle room--configure${picked.length ? ' is-selected' : ''}${cfg ? ' is-configuring' : ''}" data-room="${r.id}">
-        <div class="room-top">
-          <div class="room-media">${photoButtonHTML(r)}</div>
-          <div class="room-info">${cfg ? configPanelHTML(r, cfg, picked.length > 0) : summary}</div>
-        </div>
-      </article>`;
-  }
-
-  // D · Grid: options open in a dialog.
+  // B · Grid: options open in a dialog.
   function roomGridHTML(r) {
     const from = fromPrice(r);
     const picked = selection().filter((it) => it.room.id === r.id);
@@ -2839,7 +2779,7 @@ window.DESTINATIONS = [
       </article>`;
   }
 
-  // E · Side panel: "Select room" drops the room into the booking panel, where meals and cancellation are picked.
+  // C · Side panel: "Select room" drops the room into the booking panel, where meals and cancellation are picked.
   function roomSideHTML(r) {
     const from = fromPrice(r);
     const picked = selection().filter((it) => it.room.id === r.id);
@@ -2939,7 +2879,7 @@ window.DESTINATIONS = [
       <p class="sum-note">${icon('sparkle', 14)}<span><b>onto price drop</b> activates once you book</span></p>` : ''}`;
   }
 
-  // E · Side panel: a booked room's options, right in the summary.
+  // C · Side panel: a booked room's options, right in the summary.
   function sideOptionsHTML(it) {
     const r = it.room;
     return `
@@ -2999,7 +2939,7 @@ window.DESTINATIONS = [
     observeSpy();
   }
 
-  // E: bring a booked room's options into view (opens the booking sheet on small screens) and flash it.
+  // C: bring a booked room's options into view (opens the booking sheet on small screens) and flash it.
   function showSideItem(roomId) {
     if (window.matchMedia('(max-width: 1023px)').matches) {
       pdp.mobileSummary = true;
@@ -3161,9 +3101,7 @@ window.DESTINATIONS = [
         pdp.config = applyFilters(picked
           ? { roomId: room.id, meal: picked.rate.mealId, refundable: picked.rate.refundable, qty: picked.qty }
           : { roomId: room.id, meal: 'none', refundable: false, qty: Math.min(roomsNeeded(room), room.left) });
-        if (pdp.roomLayout === 'grid') { openConfigDialog(room); break; }
-        paintRoomList();
-        $(`.room[data-room="${room.id}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        openConfigDialog(room);
         break;
       }
       case 'cfg-meal': pdp.config.meal = a.dataset.meal; paintRoomList(); break;
@@ -3216,18 +3154,6 @@ window.DESTINATIONS = [
           pdp.sel.delete(a.dataset.key);
           pdp.sel.set(next, Math.min((pdp.sel.get(next) || 0) + qty, roomById(roomId).left));
         }
-        refreshDynamic();
-        break;
-      }
-      case 'tg-meal': case 'tg-fc': {
-        const c = toggleChoice(room);
-        const before = rateFor(c);
-        if (act === 'tg-meal') c.meal = a.dataset.meal;
-        else c.refundable = !c.refundable;
-        const after = rateFor(c);
-        // If this room is already in the booking, the selection follows the tiles.
-        const qty = pdp.sel.get(`${room.id}|${before.id}`);
-        if (qty && before.id !== after.id) { pdp.sel.delete(`${room.id}|${before.id}`); pdp.sel.set(`${room.id}|${after.id}`, qty); }
         refreshDynamic();
         break;
       }
