@@ -834,6 +834,38 @@ body.pdp-sheet-open .pdp-switcher { opacity: 0; pointer-events: none; }
 /* B / C: "added" badge sits on the photo so selecting never changes the card height */
 .cs-added { position: absolute; top: 18px; right: 18px; z-index: 2; display: inline-flex; align-items: center; gap: 4px; padding: 5px 10px; border-radius: 999px; background: var(--accent); color: #fff; font-size: .75rem; font-weight: 700; box-shadow: var(--shadow-card); pointer-events: none; }
 
+/* D · Trip options: meals + cancellation set once above the list; cards show the final price */
+.room-filters:has(.trip-bar) { align-items: center; }
+.trip-bar { flex: 1 1 100%; display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 16px; padding: 14px; border-radius: var(--r-xl); border: 1px solid var(--line); background: var(--surface); box-shadow: var(--shadow-card); }
+.trip-group { flex: 1 1 340px; display: flex; flex-direction: column; gap: 6px; }
+.trip-seg button { padding: 10px 4px; }
+.trip-seg b { font-size: .875rem; }
+.trip-cancel { flex: 1 1 240px; }
+.room-list--trip { gap: 16px; }
+.room--trip { display: grid; grid-template-columns: 220px minmax(0, 1fr) auto; gap: 20px; padding: 8px; }
+.room--trip .room-photo { aspect-ratio: auto; height: 100%; min-height: 150px; }
+.trip-info { display: flex; flex-direction: column; gap: 8px; min-width: 0; padding: 10px 0; }
+.trip-fit, .trip-terms { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; font-size: .875rem; color: var(--ink); }
+.trip-fit svg, .trip-terms svg { flex-shrink: 0; color: var(--ink-muted); }
+.trip-fit { font-weight: 700; color: var(--ink-strong); }
+.trip-fit.is-multi { color: #b45309; }
+.trip-fit.is-multi svg { color: currentColor; }
+.trip-terms span { display: inline-flex; align-items: center; gap: 4px; }
+.trip-terms .good { color: var(--accent); font-weight: 700; }
+.trip-terms .good svg { color: currentColor; }
+.trip-terms .muted { color: var(--ink-muted); }
+.trip-buy { display: flex; flex-direction: column; align-items: flex-end; justify-content: space-between; gap: 12px; min-width: 150px; padding: 10px 12px 10px 0; }
+.trip-buy .opt-price b { font-size: 1.375rem; }
+.trip-buy .btn { min-width: 120px; }
+.trip-selected { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-width: 120px; padding: 9px 16px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-weight: 700; font-size: .875rem; }
+@media (max-width: 719px) {
+  .room--trip { grid-template-columns: 1fr; gap: 4px; }
+  .room--trip .room-photo { aspect-ratio: 16 / 9; min-height: 0; }
+  .trip-info { padding: 8px 8px 0; }
+  .trip-buy { flex-direction: row; align-items: center; padding: 8px; border-top: 1px dashed var(--line); }
+  .trip-buy .opt-price { align-items: flex-start; text-align: left; }
+}
+
 </style>
 </head>
 <body data-layout="classic">
@@ -2492,13 +2524,14 @@ window.DESTINATIONS = [
   ];
 
   /* ------------------------------------------------------------------ state */
-  const ROOM_LAYOUTS = [['compact', 'A · Compact'], ['sheet', 'B · Card sheet'], ['sheet2', 'C · Card sheet, 2-up']];
+  const ROOM_LAYOUTS = [['compact', 'A · Compact'], ['sheet', 'B · Card sheet'], ['sheet2', 'C · Card sheet, 2-up'], ['trip', 'D · Trip options']];
   let savedLayout = null;
   try { savedLayout = localStorage.getItem('onto-room-layout'); } catch {}
   const pdp = {
     hotel: null, sel: new Map(), roomFilter: new Set(), amenitiesOpen: false, mobileSummary: false,
     roomLayout: ROOM_LAYOUTS.some(([id]) => id === savedLayout) ? savedLayout : 'compact',
     sheet: null, // B / C: id of the room whose options sheet is open
+    trip: { meal: 'none', refundable: true }, // D: meals + cancellation chosen once for the whole stay
     sheetIn: false, // B / C: play the slide-up only on the render that opens the sheet
   };
 
@@ -2581,22 +2614,27 @@ window.DESTINATIONS = [
 
   function roomFiltersHTML() {
     const f = pdp.roomFilter;
-    const filters = [['fits', `Fits ${plural(party().total, 'guest')} in 1 room`], ['refundable', 'Free cancellation'], ['meal', 'Breakfast included']];
-    return filters.map(([id, label]) => `<button type="button" class="chip${f.has(id) ? ' is-selected' : ''}" aria-pressed="${f.has(id)}" data-action="room-filter" data-id="${id}">${f.has(id) ? icon('check', 14) : ''}${esc(label)}</button>`).join('');
+    const trip = pdp.roomLayout === 'trip';
+    const filters = [['fits', `Fits ${plural(party().total, 'guest')} in 1 room`], ...(trip ? [] : [['refundable', 'Free cancellation'], ['meal', 'Breakfast included']])];
+    return (trip ? tripBarHTML() : '') + filters.map(([id, label]) => `<button type="button" class="chip${f.has(id) ? ' is-selected' : ''}" aria-pressed="${f.has(id)}" data-action="room-filter" data-id="${id}">${f.has(id) ? icon('check', 14) : ''}${esc(label)}</button>`).join('');
   }
 
   function roomListHTML() {
     const list = ROOMS.filter((r) => !pdp.roomFilter.has('fits') || roomsNeeded(r) === 1);
-    const renderRoom = { compact: roomCompactHTML, sheet: roomSheetHTML, sheet2: roomSheetHTML }[pdp.roomLayout];
+    const renderRoom = { compact: roomCompactHTML, sheet: roomSheetHTML, sheet2: roomSheetHTML, trip: roomTripHTML }[pdp.roomLayout];
     return list.map((r) => renderRoom(r)).join('') || '<p class="rooms-empty">No rooms match these filters.</p>';
   }
+
+  const roomsSub = () => (pdp.roomLayout === 'trip'
+    ? `Prices are for your whole stay: ${plural(nightsOf(state.stay), 'night')}, ${partyLabel()}. Taxes & fees included.`
+    : 'Prices are per room, per night, and include taxes & fees.');
 
   function roomsHTML() {
     return `
       <section class="pdp-section" id="pdp-rooms" data-spy="rooms">
         <div class="rooms-head">
           <h2 class="pdp-h2">Choose your room</h2>
-          <p class="rooms-sub">Prices are per room, per night, and include taxes & fees.</p>
+          <p class="rooms-sub" id="rooms-sub">${roomsSub()}</p>
         </div>
         <div class="room-filters" id="room-filters" role="group" aria-label="Filter rooms">${roomFiltersHTML()}</div>
         <div class="room-list room-list--${pdp.roomLayout}" id="room-list">${roomListHTML()}</div>
@@ -2688,6 +2726,56 @@ window.DESTINATIONS = [
       </article>`;
   }
 
+  // D · Trip options: meals + cancellation are picked once, above the list; every card shows its final price for that choice.
+  const tripRate = () => rateFor(pdp.trip);
+  const TRIP_MEALS = { none: 'Room only', bb: 'Breakfast', hb: '2 meals', ai: 'All meals' };
+
+  function tripBarHTML() {
+    const t = pdp.trip;
+    const included = cancelIncluded(t.meal);
+    const on = included || t.refundable;
+    return `
+      <div class="trip-bar">
+        <div class="trip-group">
+          <span class="cs-label">Meals</span>
+          <div class="cs-seg trip-seg" role="radiogroup" aria-label="Meals">
+            ${MEALS.map((m) => `<button type="button" role="radio" aria-checked="${m.id === t.meal}" class="${m.id === t.meal ? 'is-on' : ''}" data-action="trip-meal" data-meal="${m.id}"><b>${TRIP_MEALS[m.id]}</b></button>`).join('')}
+          </div>
+        </div>
+        <button type="button" class="cs-cancel trip-cancel${on ? ' is-on' : ''}" role="switch" aria-checked="${on}" data-action="trip-fc"${included ? ' disabled' : ''}>
+          <span class="cs-cancel-text"><b>Free cancellation</b><small>${included ? `${icon('check', 12)}Included with ${TRIP_MEALS[t.meal].toLowerCase()}` : on ? `Full refund till ${cancelBy()}` : 'Off · cheaper, but no refunds'}</small></span>
+          <span class="cs-switch" aria-hidden="true"></span>
+        </button>
+      </div>`;
+  }
+
+  function roomTripHTML(r) {
+    const rt = tripRate();
+    const need = roomsNeeded(r);
+    const nights = nightsOf(state.stay);
+    const perNight = priceOf(r, rt);
+    const total = perNight * need * nights;
+    const p = party();
+    const soldOut = need > r.left;
+    const selected = (pdp.sel.get(`${r.id}|${rt.id}`) || 0) > 0;
+    const fit = need === 1 ? `1 room fits all ${p.total}` : `${need} rooms for ${p.total} guests`;
+    return `
+      <article class="room room--trip${selected ? ' is-selected' : ''}" data-room="${r.id}">
+        <div class="room-media">${photoButtonHTML(r)}</div>
+        <div class="trip-info">
+          <h3 class="room-name">${esc(r.name)}</h3>${factsHTML(r)}
+          <p class="trip-fit${need > 1 ? ' is-multi' : ''}">${icon('users', 14)}${soldOut ? `Only ${r.left} left, not enough for your group` : fit}</p>
+          <p class="trip-terms">${rt.meal ? `${icon('food', 14)}${esc(rt.name)}` : `${icon('bed', 14)}Room only`}<span class="dot-sep">·</span>${rt.refundable ? `<span class="good">${icon('check', 14)}Free cancellation till ${cancelBy()}</span>` : `<span class="muted">${icon('x', 14)}Non-refundable</span>`}</p>
+        </div>
+        <div class="trip-buy">
+          <div class="opt-price"><b>${inr(total)}</b><small>${need > 1 ? `${need} rooms · ` : ''}${plural(nights, 'night')}</small><small>${inr(perNight)} /room /night</small></div>
+          ${selected
+            ? `<span class="trip-selected">${icon('check', 16)}Selected</span>`
+            : `<button type="button" class="btn btn-primary btn-sm" data-action="trip-select" data-room="${r.id}"${soldOut ? ' disabled' : ''}>Select</button>`}
+        </div>
+      </article>`;
+  }
+
   // Meals as a segmented tab row, free cancellation as a switch — sized to fit inside the card.
   function cardSheetHTML(it) {
     const r = it.room, f = pdp.roomFilter;
@@ -2738,6 +2826,8 @@ window.DESTINATIONS = [
     el.className = `room-list room-list--${pdp.roomLayout}`;
     el.innerHTML = roomListHTML();
     pdp.sheetIn = false;
+    const sub = $('#rooms-sub');
+    if (sub) sub.textContent = roomsSub();
   }
 
   function amenitiesHTML() {
@@ -3003,6 +3093,20 @@ window.DESTINATIONS = [
       }
       case 'sheet-show': pdp.sheet = room.id; pdp.sheetIn = true; paintRoomList(); break;
       case 'sheet-close': pdp.sheet = null; paintRoomList(); break;
+      case 'trip-meal': case 'trip-fc': {
+        if (act === 'trip-meal') pdp.trip.meal = a.dataset.meal;
+        else pdp.trip.refundable = !pdp.trip.refundable;
+        // Whatever's already booked follows the new choice.
+        const rt = tripRate();
+        pdp.sel = new Map(selection().map((it) => [`${it.room.id}|${rt.id}`, it.qty]));
+        refreshDynamic();
+        break;
+      }
+      case 'trip-select':
+        // One room type per booking here: picking a room replaces the previous one.
+        pdp.sel = new Map([[`${room.id}|${tripRate().id}`, roomsNeeded(room)]]);
+        refreshDynamic();
+        break;
       case 'sp-meal': case 'sp-fc': {
         const [roomId, rateId] = a.dataset.key.split('|');
         const rt = rateById(rateId);
@@ -3097,6 +3201,12 @@ window.DESTINATIONS = [
     try { localStorage.setItem('onto-room-layout', pdp.roomLayout); } catch {}
     $$('[data-room-layout]', switcher).forEach((x) => x.setAttribute('aria-checked', String(x === b)));
     pdp.sheet = null;
+    if (pdp.roomLayout === 'trip') {
+      const first = selection()[0];
+      if (first) pdp.trip = { meal: first.rate.mealId, refundable: first.rate.refundable };
+      pdp.roomFilter.delete('refundable');
+      pdp.roomFilter.delete('meal');
+    }
     refreshDynamic();
     const rooms = $('#pdp-rooms');
     if (rooms) {
