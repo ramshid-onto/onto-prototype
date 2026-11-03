@@ -861,6 +861,55 @@ body.pdp-sheet-open .pdp-switcher { opacity: 0; pointer-events: none; }
 .sum-opts .cfg-rooms { padding: 0; }
 @media (max-width: 1023px) { .sum-opts .mc-tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); } .sum-opts .mc-cancel::before { left: var(--n4); } }
 
+/* D · Card sheet: C's cards, with the options sliding up inside the card (card height doesn't change) */
+.room-list--sheet { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
+.room--side { position: relative; }
+.card-sheet { position: absolute; inset: 64px 0 0; z-index: 3; display: flex; flex-direction: column; gap: 12px; padding: 14px 14px 12px; background: var(--surface); border-radius: 20px 20px 0 0; box-shadow: 0 -8px 24px rgba(0,0,0,.18); }
+.room--side.has-sheet::before { content: ''; position: absolute; inset: 0; z-index: 3; background: #11182740; pointer-events: none; }
+.card-sheet.is-in { animation: sheet-up .28s var(--ease); }
+@keyframes sheet-up { from { transform: translateY(100%); } }
+@media (prefers-reduced-motion: reduce) { .card-sheet.is-in { animation: none; } }
+.room--side.has-sheet { overflow: hidden; }
+.cs-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.cs-head b { font-size: 1rem; color: var(--ink-strong); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cs-head .icon-btn { flex-shrink: 0; width: 30px; height: 30px; }
+.cs-group { display: flex; flex-direction: column; gap: 6px; }
+.cs-label { font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-muted); }
+/* meals: one row of tabs */
+.cs-seg { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 2px; padding: 3px; border-radius: 14px; background: var(--page); border: 1px solid var(--line); }
+.cs-seg button { display: flex; flex-direction: column; align-items: center; gap: 1px; min-width: 0; padding: 7px 2px; border-radius: 11px; color: var(--ink-muted); transition: background-color .15s, color .15s, box-shadow .15s; }
+.cs-seg b { font-size: .8125rem; white-space: nowrap; }
+.cs-seg small { font-size: .6875rem; white-space: nowrap; }
+.cs-seg button:hover:not(:disabled):not(.is-on) { color: var(--ink-strong); }
+.cs-seg button.is-on { background: var(--surface); color: var(--ink-strong); box-shadow: 0 1px 3px rgba(0,0,0,.12), 0 0 0 1px var(--line); }
+.cs-seg button.is-on small { color: var(--accent); font-weight: 700; }
+.cs-seg button:disabled { opacity: .4; cursor: not-allowed; }
+/* free cancellation: a switch row */
+.cs-cancel { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 14px; border: 1px solid var(--line); text-align: left; transition: border-color .15s, background-color .15s; }
+.cs-cancel:hover:not(:disabled) { border-color: var(--line-strong); }
+.cs-cancel.is-on { background: var(--accent-soft); border-color: #0f8a6333; }
+.cs-cancel:disabled { cursor: default; }
+.cs-cancel-text { display: flex; flex-direction: column; min-width: 0; }
+.cs-cancel-text b { font-size: .875rem; color: var(--ink-strong); }
+.cs-cancel-text small { display: inline-flex; align-items: center; gap: 3px; font-size: .75rem; color: var(--ink-muted); }
+.cs-cancel.is-on:disabled .cs-cancel-text small { color: var(--accent); font-weight: 700; }
+.cs-fee { font-size: .8125rem; font-weight: 700; color: var(--ink-strong); white-space: nowrap; }
+.cs-switch { position: relative; width: 36px; height: 22px; border-radius: 999px; background: #d6d8dd; transition: background-color .2s; }
+.cs-switch::after { content: ''; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.25); transition: transform .2s var(--ease); }
+.cs-cancel.is-on .cs-switch { background: var(--accent); }
+.cs-cancel.is-on .cs-switch::after { transform: translateX(14px); }
+.cs-cancel.is-on:disabled .cs-switch { opacity: .55; }
+/* price + rooms + done */
+.cs-foot { display: flex; align-items: center; gap: 10px; margin-top: auto; padding-top: 10px; border-top: 1px dashed var(--line); }
+.cs-price { display: flex; flex-direction: column; min-width: 0; margin-right: auto; }
+.cs-price b { font-size: 1.0625rem; color: var(--ink-strong); white-space: nowrap; }
+.cs-price small { font-size: .75rem; color: var(--ink-muted); white-space: nowrap; }
+.cs-qty { gap: 6px; }
+.cs-qty button { width: 28px; height: 28px; font-size: 16px; }
+.cs-foot .btn-sm { padding: 8px 14px; }
+/* D: "added" badge sits on the photo so selecting never changes the card height */
+.cs-added { position: absolute; top: 18px; right: 18px; z-index: 2; display: inline-flex; align-items: center; gap: 4px; padding: 5px 10px; border-radius: 999px; background: var(--accent); color: #fff; font-size: .75rem; font-weight: 700; box-shadow: var(--shadow-card); pointer-events: none; }
+
 </style>
 </head>
 <body data-layout="classic">
@@ -2519,13 +2568,15 @@ window.DESTINATIONS = [
   ];
 
   /* ------------------------------------------------------------------ state */
-  const ROOM_LAYOUTS = [['compact', 'A · Compact'], ['grid', 'B · Grid'], ['side', 'C · Side panel']];
+  const ROOM_LAYOUTS = [['compact', 'A · Compact'], ['grid', 'B · Grid'], ['side', 'C · Side panel'], ['sheet', 'D · Card sheet']];
   let savedLayout = null;
   try { savedLayout = localStorage.getItem('onto-room-layout'); } catch {}
   const pdp = {
     hotel: null, sel: new Map(), roomFilter: new Set(), amenitiesOpen: false, mobileSummary: false,
     roomLayout: ROOM_LAYOUTS.some(([id]) => id === savedLayout) ? savedLayout : 'compact',
     config: null, // B: { roomId, meal, refundable, qty } while the options dialog is open
+    sheet: null, // D: id of the room whose options sheet is open
+    sheetIn: false, // D: play the slide-up only on the render that opens the sheet
   };
 
   const party = () => ({ adults: state.stay.adults, children: state.stay.children, total: state.stay.adults + state.stay.children });
@@ -2613,7 +2664,7 @@ window.DESTINATIONS = [
 
   function roomListHTML() {
     const list = ROOMS.filter((r) => !pdp.roomFilter.has('fits') || roomsNeeded(r) === 1);
-    const renderRoom = { compact: roomCompactHTML, grid: roomGridHTML, side: roomSideHTML }[pdp.roomLayout];
+    const renderRoom = { compact: roomCompactHTML, grid: roomGridHTML, side: roomSideHTML, sheet: roomSheetHTML }[pdp.roomLayout];
     return list.map((r) => renderRoom(r)).join('') || '<p class="rooms-empty">No rooms match these filters.</p>';
   }
 
@@ -2780,15 +2831,18 @@ window.DESTINATIONS = [
   }
 
   // C · Side panel: "Select room" drops the room into the booking panel, where meals and cancellation are picked.
+  // D · Card sheet: same card, but the options slide up as a sheet inside it.
   function roomSideHTML(r) {
     const from = fromPrice(r);
     const picked = selection().filter((it) => it.room.id === r.id);
+    const sheet = pdp.roomLayout === 'sheet' && pdp.sheet === r.id && picked.length ? cardSheetHTML(picked[0]) : '';
     return `
-      <article class="room room--grid room--side${picked.length ? ' is-selected' : ''}" data-room="${r.id}">
+      <article class="room room--grid room--side${picked.length ? ' is-selected' : ''}${sheet ? ' has-sheet' : ''}" data-room="${r.id}">
         ${photoButtonHTML(r)}
+        ${picked.length && pdp.roomLayout === 'sheet' ? `<span class="cs-added">${icon('check', 14)}${plural(picked.reduce((n, it) => n + it.qty, 0), 'room')} added</span>` : ''}
         <div class="grid-body">
           <h3 class="room-name">${esc(r.name)}</h3>${factsHTML(r)}
-          ${picked.length ? `<p class="grid-picked">${icon('check', 14)}${plural(picked.reduce((n, it) => n + it.qty, 0), 'room')} in your booking</p>` : ''}
+          ${picked.length && pdp.roomLayout === 'side' ? `<p class="grid-picked">${icon('check', 14)}${plural(picked.reduce((n, it) => n + it.qty, 0), 'room')} in your booking</p>` : ''}
           <div class="grid-foot">
             <div class="opt-price">${from ? `<small>From</small><b>${inr(from)}<small> /night</small></b>` : '<small>No options match</small>'}</div>
             ${picked.length
@@ -2796,7 +2850,53 @@ window.DESTINATIONS = [
               : `<button type="button" class="btn btn-primary btn-sm" data-action="side-select" data-room="${r.id}"${from ? '' : ' disabled'}>Select room</button>`}
           </div>
         </div>
+        ${sheet}
       </article>`;
+  }
+  const roomSheetHTML = roomSideHTML;
+
+  // D: meals as a segmented tab row, free cancellation as a switch — sized to fit inside the card.
+  function cardSheetHTML(it) {
+    const r = it.room, f = pdp.roomFilter;
+    const nights = nightsOf(state.stay);
+    const meal = it.rate.mealId;
+    const included = cancelIncluded(meal);
+    const on = included || it.rate.refundable;
+    const cheapest = priceOf(r, RATES[0]);
+    const fee = priceOf(r, rateById('none-fc')) - cheapest;
+    const title = r.name.replace(/,.*$/, '');
+    return `
+      <div class="card-sheet${pdp.sheetIn ? ' is-in' : ''}" role="dialog" aria-label="${esc(r.name)} options">
+        <div class="cs-head">
+          <b>${esc(title)}</b>
+          <button type="button" class="icon-btn" data-action="sheet-close" aria-label="Close options">${icon('x', 16)}</button>
+        </div>
+        <div class="cs-group">
+          <span class="cs-label">Meals</span>
+          <div class="cs-seg" role="radiogroup" aria-label="Meals">
+            ${MEALS.map((m) => {
+              const sel = m.id === meal;
+              const add = priceOf(r, rateFor({ meal: m.id, refundable: false })) - cheapest;
+              return `<button type="button" role="radio" aria-checked="${sel}" class="${sel ? 'is-on' : ''}" data-action="sp-meal" data-key="${it.key}" data-meal="${m.id}"${f.has('meal') && m.id === 'none' ? ' disabled' : ''}>
+                <b>${m.label}</b><small>${m.id === 'none' ? 'Room only' : `+${inr(add)}`}</small></button>`;
+            }).join('')}
+          </div>
+        </div>
+        <button type="button" class="cs-cancel${on ? ' is-on' : ''}" role="switch" aria-checked="${on}" data-action="sp-fc" data-key="${it.key}"${included || f.has('refundable') ? ' disabled' : ''}>
+          <span class="cs-cancel-text"><b>Free cancellation</b><small>${included ? `${icon('check', 12)}Included with meals` : `Full refund till ${cancelBy()}`}</small></span>
+          ${included ? '' : `<span class="cs-fee">+${inr(fee)}</span>`}
+          <span class="cs-switch" aria-hidden="true"></span>
+        </button>
+        <div class="cs-foot">
+          <div class="cs-price"><b>${inr(it.perNight * it.qty * nights)}</b><small>${plural(it.qty, 'room')} · ${plural(nights, 'night')}</small></div>
+          <div class="stepper cs-qty">
+            <button type="button" data-action="rate-qty" data-key="${it.key}" data-dir="-1"${it.qty <= 1 ? ' disabled' : ''} aria-label="Fewer rooms">−</button>
+            <output>${it.qty}</output>
+            <button type="button" data-action="rate-qty" data-key="${it.key}" data-dir="1"${it.qty >= r.left ? ' disabled' : ''} aria-label="More rooms">+</button>
+          </div>
+          <button type="button" class="btn btn-primary btn-sm" data-action="sheet-close">Done</button>
+        </div>
+      </div>`;
   }
 
   function openConfigDialog(r) {
@@ -2808,6 +2908,7 @@ window.DESTINATIONS = [
     if (!el) return;
     el.className = `room-list room-list--${pdp.roomLayout}`;
     el.innerHTML = roomListHTML();
+    pdp.sheetIn = false;
     const dlg = $('#cfg-dialog');
     if (dlg && pdp.config) dlg.innerHTML = configPanelHTML(roomById(pdp.config.roomId), pdp.config, selection().some((it) => it.room.id === pdp.config.roomId));
   }
@@ -3137,11 +3238,16 @@ window.DESTINATIONS = [
         const others = selection();
         if (others.length && fitsParty(capacity(others))) others.forEach((it) => pdp.sel.delete(it.key));
         pdp.sel.set(key, Math.min(roomsNeeded(room), room.left));
+        if (pdp.roomLayout === 'sheet') { pdp.sheet = room.id; pdp.sheetIn = true; refreshDynamic(); break; }
         refreshDynamic();
         showSideItem(room.id);
         break;
       }
-      case 'side-show': showSideItem(room.id); break;
+      case 'side-show':
+        if (pdp.roomLayout === 'sheet') { pdp.sheet = room.id; pdp.sheetIn = true; paintRoomList(); break; }
+        showSideItem(room.id);
+        break;
+      case 'sheet-close': pdp.sheet = null; paintRoomList(); break;
       case 'sp-meal': case 'sp-fc': {
         const [roomId, rateId] = a.dataset.key.split('|');
         const rt = rateById(rateId);
@@ -3236,6 +3342,7 @@ window.DESTINATIONS = [
     try { localStorage.setItem('onto-room-layout', pdp.roomLayout); } catch {}
     $$('[data-room-layout]', switcher).forEach((x) => x.setAttribute('aria-checked', String(x === b)));
     pdp.config = null;
+    pdp.sheet = null;
     refreshDynamic();
     const rooms = $('#pdp-rooms');
     if (rooms) {
@@ -3249,7 +3356,7 @@ window.DESTINATIONS = [
     open(hotel, { section } = {}) {
       const changed = !pdp.hotel || pdp.hotel.id !== hotel.id;
       pdp.hotel = hotel;
-      if (changed) { pdp.config = null; pdp.sel = new Map(); pdp.roomFilter.clear(); pdp.amenitiesOpen = false; } // nothing pre-selected
+      if (changed) { pdp.config = null; pdp.sheet = null; pdp.sel = new Map(); pdp.roomFilter.clear(); pdp.amenitiesOpen = false; } // nothing pre-selected
       pdp.mobileSummary = false;
       document.body.classList.remove('pdp-sheet-open');
       $('#pdp').hidden = false;
