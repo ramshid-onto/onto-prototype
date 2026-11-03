@@ -855,6 +855,50 @@ body.pdp-sheet-open .pdp-switcher { opacity: 0; pointer-events: none; }
   .room-list--compact2 .opt-price { flex-direction: row; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
 }
 
+/* E · Room card: details + photo, meal tiles, cancellation checkbox, total + Book */
+.room--card { display: flex; flex-direction: column; }
+.rc-top { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 20px; padding: 20px 20px 0; }
+.rc-details { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; min-width: 0; }
+.rc-facts { gap: 8px 16px; font-size: .9375rem; }
+.rc-perks { font-size: .875rem; color: var(--ink-muted); }
+.rc-details .link-btn { padding: 0; }
+.rc-photo .room-photo { aspect-ratio: 3 / 2; height: auto; min-height: 0; }
+.rc-options { display: flex; flex-direction: column; gap: 10px; padding: 18px 20px 20px; }
+.rc-label { font-weight: 700; color: var(--ink-strong); }
+.rc-meals { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.rc-meal { display: flex; flex-direction: column; align-items: flex-start; justify-content: space-between; gap: 8px; min-height: 84px; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--line); background: var(--page); text-align: left; transition: border-color .15s, background-color .15s, box-shadow .15s; }
+.rc-meal b { font-size: .9375rem; color: var(--ink-strong); line-height: 1.25; }
+.rc-meal span { font-weight: 700; font-size: .9375rem; color: var(--ink); }
+.rc-meal small { font-weight: 500; font-size: .75rem; color: var(--ink-muted); }
+.rc-meal:hover:not(:disabled):not(.is-on) { border-color: var(--line-strong); }
+.rc-meal.is-on { background: var(--surface); border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.rc-meal.is-on span { color: var(--accent); }
+.rc-meal:disabled { opacity: .45; cursor: not-allowed; }
+.rc-cancel { display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; align-items: center; gap: 12px; margin-top: 4px; padding: 6px 2px; text-align: left; }
+.rc-cancel:disabled { cursor: default; }
+.rc-box { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 7px; border: 2px solid var(--ink-muted); color: transparent; transition: background-color .15s, border-color .15s; }
+.rc-cancel.is-on .rc-box { background: var(--accent); border-color: var(--accent); color: #fff; }
+.rc-cancel:disabled.is-on .rc-box { background: #a7d3c2; border-color: #a7d3c2; }
+.rc-cancel-text { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; min-width: 0; }
+.rc-cancel-text b { color: var(--ink-strong); }
+.rc-cancel-text small { color: var(--ink-muted); font-size: .8125rem; }
+.rc-incl { font-weight: 700; font-size: .875rem; color: var(--accent); }
+.rc-fee { font-weight: 700; color: var(--ink-strong); white-space: nowrap; }
+.rc-foot { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 20px; border-top: 1px solid var(--line); background: var(--page); }
+.rc-total { display: flex; flex-direction: column; min-width: 0; }
+.rc-total b { font-size: 1.375rem; color: var(--ink-strong); }
+.rc-total small { color: var(--ink-muted); font-size: .8125rem; }
+.rc-foot .btn { flex-shrink: 0; padding: 12px 22px; }
+.rc-booked { flex-shrink: 0; display: inline-flex; align-items: center; gap: 6px; padding: 11px 18px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-weight: 700; }
+@media (max-width: 719px) {
+  .rc-top { grid-template-columns: 1fr; padding: 8px 8px 0; }
+  .rc-photo { order: -1; }
+  .rc-details { padding: 4px 8px 0; }
+  .rc-options { padding: 16px; }
+  .rc-meals { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .rc-foot { padding: 14px 16px; }
+}
+
 </style>
 </head>
 <body data-layout="classic">
@@ -2513,13 +2557,14 @@ window.DESTINATIONS = [
   ];
 
   /* ------------------------------------------------------------------ state */
-  const ROOM_LAYOUTS = [['compact', 'A · Compact'], ['sheet', 'B · Card sheet'], ['sheet2', 'C · Card sheet, 2-up'], ['compact2', 'D · Compact, 2-up']];
+  const ROOM_LAYOUTS = [['compact', 'A · Compact'], ['sheet', 'B · Card sheet'], ['sheet2', 'C · Card sheet, 2-up'], ['compact2', 'D · Compact, 2-up'], ['card', 'E · Room card']];
   let savedLayout = null;
   try { savedLayout = localStorage.getItem('onto-room-layout'); } catch {}
   const pdp = {
     hotel: null, sel: new Map(), roomFilter: new Set(), amenitiesOpen: false, mobileSummary: false,
     roomLayout: ROOM_LAYOUTS.some(([id]) => id === savedLayout) ? savedLayout : 'compact',
     sheet: null, // B / C: id of the room whose options sheet is open
+    choice: {}, // E: { [roomId]: { meal, refundable } } picked on each card
     sheetIn: false, // B / C: play the slide-up only on the render that opens the sheet
   };
 
@@ -2608,7 +2653,7 @@ window.DESTINATIONS = [
 
   function roomListHTML() {
     const list = ROOMS.filter((r) => !pdp.roomFilter.has('fits') || roomsNeeded(r) === 1);
-    const renderRoom = { compact: roomCompactHTML, compact2: roomCompactHTML, sheet: roomSheetHTML, sheet2: roomSheetHTML }[pdp.roomLayout];
+    const renderRoom = { compact: roomCompactHTML, compact2: roomCompactHTML, sheet: roomSheetHTML, sheet2: roomSheetHTML, card: roomCardHTML }[pdp.roomLayout];
     return list.map((r) => renderRoom(r)).join('') || '<p class="rooms-empty">No rooms match these filters.</p>';
   }
 
@@ -2653,6 +2698,72 @@ window.DESTINATIONS = [
     if (pdp.roomFilter.has('meal') && c.meal === 'none') c.meal = 'bb';
     if (pdp.roomFilter.has('refundable')) c.refundable = true;
     return c;
+  }
+
+  // E · Room card: details + photo, meal tiles, cancellation checkbox, then the total and "Book this room".
+  const CARD_MEALS = { none: 'Room only', bb: 'Breakfast', hb: 'Breakfast & dinner', ai: 'All meals' };
+  function cardChoice(r) {
+    // A booked option for this room wins, so the card always matches the summary.
+    const picked = selection().find((it) => it.room.id === r.id);
+    const c = picked ? { meal: picked.rate.mealId, refundable: picked.rate.refundable } : pdp.choice[r.id] || { meal: 'none', refundable: true };
+    pdp.choice[r.id] = applyFilters(c);
+    return c;
+  }
+
+  function roomCardHTML(r) {
+    const c = cardChoice(r);
+    const f = pdp.roomFilter;
+    const rt = rateFor(c);
+    const need = Math.min(roomsNeeded(r), r.left);
+    const nights = nightsOf(state.stay);
+    const perNight = priceOf(r, rt);
+    const base = priceOf(r, RATES[0]);
+    const included = cancelIncluded(c.meal);
+    const checked = included || c.refundable;
+    const fee = priceOf(r, rateById('none-fc')) - base;
+    const booked = (pdp.sel.get(`${r.id}|${rt.id}`) || 0) > 0;
+    return `
+      <article class="room room--card${booked ? ' is-selected' : ''}" data-room="${r.id}">
+        <div class="rc-top">
+          <div class="rc-details">
+            <h3 class="room-name">${esc(r.name)}</h3>
+            <ul class="room-facts rc-facts">
+              <li>${icon('bed', 16)}${esc(r.bed)}</li><li>${icon('expand', 16)}${r.size} m²</li>
+              <li>${icon('users', 16)}Sleeps ${r.maxGuests}</li><li>${icon('water', 16)}${esc(r.view)}</li>
+            </ul>
+            <p class="rc-perks">${r.perks.map(esc).join(' · ')}</p>
+            <button type="button" class="link-btn" data-action="room-details" data-room="${r.id}">Room details</button>
+          </div>
+          <div class="rc-photo">${photoButtonHTML(r)}</div>
+        </div>
+        <div class="rc-options">
+          <p class="rc-label">Select meals</p>
+          <div class="rc-meals" role="radiogroup" aria-label="Meals">
+            ${MEALS.map((m) => {
+              const on = m.id === c.meal;
+              const add = priceOf(r, rateFor({ meal: m.id, refundable: false })) - base;
+              return `<button type="button" class="rc-meal${on ? ' is-on' : ''}" role="radio" aria-checked="${on}" data-action="card-meal" data-room="${r.id}" data-meal="${m.id}"${f.has('meal') && m.id === 'none' ? ' disabled' : ''}>
+                <b>${CARD_MEALS[m.id]}</b>
+                <span>${m.id === 'none' ? `${inr(base)}<small>/night</small>` : `+${inr(add)}<small>/night</small>`}</span>
+              </button>`;
+            }).join('')}
+          </div>
+          <button type="button" class="rc-cancel${checked ? ' is-on' : ''}" role="checkbox" aria-checked="${checked}" data-action="card-fc" data-room="${r.id}"${included || f.has('refundable') ? ' disabled' : ''}>
+            <span class="rc-box" aria-hidden="true">${icon('check', 14)}</span>
+            <span class="rc-cancel-text"><b>Free cancellation</b>${included ? `<span class="rc-incl">Included with ${CARD_MEALS[c.meal].toLowerCase()}</span>` : `<small>Full refund till ${cancelBy()}</small>`}</span>
+            ${included ? '' : `<span class="rc-fee">+${inr(fee)}/night</span>`}
+          </button>
+        </div>
+        <div class="rc-foot">
+          <div class="rc-total">
+            <b>${inr(perNight * need * nights)}</b>
+            <small>Total for ${plural(nights, 'night')}${need > 1 ? ` · ${need} rooms for ${plural(party().total, 'guest')}` : ''} · ${inr(perNight)}/room/night</small>
+          </div>
+          ${booked
+            ? `<span class="rc-booked">${icon('check', 16)}Added to your booking</span>`
+            : `<button type="button" class="btn btn-primary" data-action="card-book" data-room="${r.id}"${need > r.left ? ' disabled' : ''}>Book this room</button>`}
+        </div>
+      </article>`;
   }
 
   // A · Compact: one line per option (D: same card, two per row).
@@ -3024,6 +3135,28 @@ window.DESTINATIONS = [
       }
       case 'sheet-show': pdp.sheet = room.id; pdp.sheetIn = true; paintRoomList(); break;
       case 'sheet-close': pdp.sheet = null; paintRoomList(); break;
+      case 'card-meal': case 'card-fc': {
+        const c = cardChoice(room);
+        const before = rateFor(c);
+        if (act === 'card-meal') c.meal = a.dataset.meal;
+        else c.refundable = !c.refundable;
+        const after = rateFor(c);
+        // If this room is already booked, the booking follows the card.
+        const qty = pdp.sel.get(`${room.id}|${before.id}`);
+        if (qty && before.id !== after.id) { pdp.sel.delete(`${room.id}|${before.id}`); pdp.sel.set(`${room.id}|${after.id}`, qty); }
+        refreshDynamic();
+        break;
+      }
+      case 'card-book': {
+        const c = cardChoice(room);
+        [...pdp.sel.keys()].filter((k) => k.startsWith(room.id + '|')).forEach((k) => pdp.sel.delete(k));
+        // Same rule as "Select": if the other rooms already fit everyone, this one replaces them.
+        const others = selection();
+        if (others.length && fitsParty(capacity(others))) others.forEach((it) => pdp.sel.delete(it.key));
+        pdp.sel.set(`${room.id}|${rateFor(c).id}`, Math.min(roomsNeeded(room), room.left));
+        refreshDynamic();
+        break;
+      }
       case 'sp-meal': case 'sp-fc': {
         const [roomId, rateId] = a.dataset.key.split('|');
         const rt = rateById(rateId);
