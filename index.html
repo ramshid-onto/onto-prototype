@@ -791,9 +791,7 @@ body.pdp-sheet-open .pdp-switcher { opacity: 0; pointer-events: none; }
 .grid-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: auto; padding-top: 12px; border-top: 1px dashed var(--line); }
 .grid-foot .opt-price { align-items: flex-start; text-align: left; }
 
-/* B / C · Card sheet: grid cards, with the options sliding up inside the card (card height doesn't change) */
-.room-list--sheet { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
-/* C: two cards per row (one on phones) */
+/* B · Card sheet, 2-up: grid cards, with the options sliding up inside the card (card height doesn't change) */
 .room-list--sheet2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
 @media (max-width: 639px) { .room-list--sheet2 { grid-template-columns: 1fr; } }
 .room--sheet { position: relative; }
@@ -850,7 +848,7 @@ body.pdp-sheet-open .pdp-switcher { opacity: 0; pointer-events: none; }
 
 
 
-/* D · Rate cards: room header + a sideways row of rate cards */
+/* C · Rate cards: room header + a sideways row of rate cards */
 .room--rates { padding: 8px 0 16px; }
 .rr-head { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 20px; padding: 0 8px; }
 .rr-photo .room-photo { aspect-ratio: 3 / 2; height: auto; min-height: 0; }
@@ -2566,7 +2564,7 @@ window.DESTINATIONS = [
   ];
 
   /* ------------------------------------------------------------------ state */
-  const ROOM_LAYOUTS = [['compact', 'A · Compact'], ['sheet', 'B · Card sheet'], ['sheet2', 'C · Card sheet, 2-up'], ['rates', 'D · Rate cards']];
+  const ROOM_LAYOUTS = [['compact', 'A · Compact'], ['sheet2', 'B · Card sheet, 2-up'], ['rates', 'C · Rate cards']];
   let savedLayout = null;
   try { savedLayout = localStorage.getItem('onto-room-layout'); } catch {}
   const pdp = {
@@ -2662,7 +2660,7 @@ window.DESTINATIONS = [
 
   function roomListHTML() {
     const list = ROOMS.filter((r) => !pdp.roomFilter.has('fits') || roomsNeeded(r) === 1);
-    const renderRoom = { compact: roomCompactHTML, sheet: roomSheetHTML, sheet2: roomSheetHTML, rates: roomRatesHTML }[pdp.roomLayout];
+    const renderRoom = { compact: roomCompactHTML, sheet2: roomSheetHTML, rates: roomRatesHTML }[pdp.roomLayout];
     return list.map((r) => renderRoom(r)).join('') || '<p class="rooms-empty">No rooms match these filters.</p>';
   }
 
@@ -2709,7 +2707,7 @@ window.DESTINATIONS = [
     return c;
   }
 
-  // D · Rate cards: room header, then a sideways row of rate cards (what's included, price, Book).
+  // C · Rate cards: room header, then a sideways row of rate cards (what's included, price, Book).
   const MEAL_LINE = { bb: 'Breakfast', hb: 'Breakfast and dinner', ai: 'Breakfast, lunch and dinner' };
   function rateCardHTML(r, rt, need) {
     const key = `${r.id}|${rt.id}`;
@@ -2794,7 +2792,7 @@ window.DESTINATIONS = [
 
   const fromPrice = (r) => { const rates = visibleRates(); return rates.length ? Math.min(...rates.map((rt) => priceOf(r, rt))) : null; };
 
-  // B / C · Card sheet: "Select room" adds the room and slides its options up as a sheet inside the card (C: two cards per row).
+  // B · Card sheet, 2-up: "Select room" adds the room and slides its options up as a sheet inside the card, two cards per row.
   // C: room photos as a carousel: dots by default, arrows on hover (none past the first / last photo).
   function photoCarouselHTML(r) {
     const n = r.images.length;
@@ -2816,7 +2814,7 @@ window.DESTINATIONS = [
     const sheet = pdp.sheet === r.id && picked.length ? cardSheetHTML(picked[0]) : '';
     return `
       <article class="room room--grid room--sheet${picked.length ? ' is-selected' : ''}${sheet ? ' has-sheet' : ''}" data-room="${r.id}">
-        ${pdp.roomLayout === 'sheet2' ? photoCarouselHTML(r) : photoButtonHTML(r)}
+        ${photoCarouselHTML(r)}
         <div class="grid-body">
           <h3 class="room-name">${esc(r.name)}</h3>${factsHTML(r)}
           <div class="grid-foot">
@@ -2878,7 +2876,7 @@ window.DESTINATIONS = [
     const el = $('#room-list');
     if (!el) return;
     el.className = `room-list room-list--${pdp.roomLayout}`;
-    // D: keep each rate row where the guest scrolled it.
+    // C: keep each rate row where the guest scrolled it.
     const scrolled = $$('.rr-row', el).map((row) => [row.closest('.room').dataset.room, row.scrollLeft]);
     el.innerHTML = roomListHTML();
     scrolled.forEach(([id, x]) => { const row = $(`.room[data-room="${id}"] .rr-row`, el); if (row) row.scrollLeft = x; });
