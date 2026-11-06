@@ -1921,6 +1921,8 @@ window.DESTINATIONS = [
   }
 
   function openSheet(type, fromBar, anchor) {
+    // D: moving from the guests picker to another field commits the guests first (reloads if they changed).
+    if (autoSearch() && sheet.type === 'who' && type !== 'who' && !fromBar) closeSheet();
     closePops(); closeQuickPop();
     if (fromBar && !document.body.classList.contains('bar-open')) {
       sheet.snapshot = structuredClone(state.draft); // restored if the bar is dismissed without searching
