@@ -1997,7 +1997,7 @@ window.DESTINATIONS = [
         <button type="button" class="icon-btn" data-action="cal-nav" data-dir="1" aria-label="Next month">${icon('chevron-right')}</button>
       </div>
       <div class="cal-months">${monthHTML(m1)}${monthHTML(m2)}</div>
-      <div class="cal-foot">${[1, 2, 3, 5, 7].map((n) => `<button type="button" class="chip chip-sm${!sheet.pickingEnd && nightsOf(d) === n ? ' is-selected' : ''}" data-action="set-nights" data-n="${n}">${plural(n, 'night')}</button>`).join('')}</div>`;
+      ${searchOnChange() ? '' : `<div class="cal-foot">${[1, 2, 3, 5, 7].map((n) => `<button type="button" class="chip chip-sm${!sheet.pickingEnd && nightsOf(d) === n ? ' is-selected' : ''}" data-action="set-nights" data-n="${n}">${plural(n, 'night')}</button>`).join('')}</div>`}`;
   }
 
   const STEP_ROWS = [
@@ -2041,6 +2041,13 @@ window.DESTINATIONS = [
     } else {
       d.checkOut = iso;
       sheet.pickingEnd = false;
+      // E · Search on change: close once both dates are picked (after a beat, so the range is seen).
+      if (searchOnChange() && !sheet.fromBar) {
+        renderStay();
+        renderSheet();
+        setTimeout(() => { if (sheet.type === 'when' && !sheet.pickingEnd) closeSheet(); }, 250);
+        return;
+      }
     }
     renderStay();
     renderSheet();
