@@ -443,19 +443,17 @@ body[data-layout="list"] .fav { display: grid; }
 body[data-layout="list"] .card-tags { max-height: none; }
 
 /* ===================================================================
-   D · List, grid — B's cards and filters, but cards in a grid and filters on the right
+   D · List, grid — B's filters on the right, live onto.travel cards, 2 per row
    =================================================================== */
 @media (min-width: 1024px) {
   body[data-layout="listgrid"] .page-grid { grid-template-columns: minmax(0, 1fr) 300px; column-gap: 40px; }
 }
-body[data-layout="listgrid"] .listing { align-items: stretch; }
-@media (min-width: 768px) {
-  body[data-layout="listgrid"] .listing { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
-  body[data-layout="listgrid"] .card-foot { flex-wrap: wrap; border-top-style: solid; }
-  body[data-layout="listgrid"] .card-cta { display: inline-flex; flex: 1 0 100%; justify-content: center; padding: 12px 20px; }
-}
-body[data-layout="listgrid"] .card-perks { display: flex; }
-body[data-layout="listgrid"] .fav { display: grid; }
+.live-star-badge { position: absolute; left: 20px; top: 20px; z-index: 3; pointer-events: none; display: inline-flex; align-items: center; padding: 4px 6px; border-radius: var(--r-sm); background: var(--surface); box-shadow: var(--shadow-card); color: var(--ink-strong); }
+.live-star-badge .laurel { opacity: .3; }
+.live-star-badge .laurel.flip { transform: scaleX(-1); }
+.live-star-badge b { margin-left: -6px; transform: translateY(-1px); font-family: var(--font-heading); font-size: .875rem; font-weight: 800; line-height: 1; }
+.live-star-badge .tiny-star { margin-left: 1px; transform: translateY(-2px); }
+.live-star-badge .laurel:last-child { margin-left: -8px; }
 
 /* ===================================================================
    Gallery header: compact stay bar + quick filter bar
@@ -1421,11 +1419,18 @@ window.DESTINATIONS = [
   const starBadge = (n) =>
     `<span class="star-badge" role="img" aria-label="${n}-star hotel"><span>${Array.from({ length: n }, () => icon('star', 12)).join('')}</span></span>`;
 
+  // D · List, grid copies the live onto.travel card: laurel star badge, duotone rating star, no save/perks/CTA.
+  const LAUREL = '<path d="M183.27 0 L183.15 0.02 C182.05 1.36 178.64 3.98 177.23 5.18 C173.95 8 170.74 10.91 167.61 13.89 C145.25 35.52 135.3 65.27 148.96 94.22 C150.94 98.43 153.03 101.89 155.63 105.73 C155.26 107.27 154.52 109.15 154.02 110.67 C146.27 134.09 132.77 156.51 116.2 174.68 C111.41 180 106.29 185.03 100.88 189.73 C82.46 205.73 66.58 214.92 47.63 222.57 C37.72 226.57 27.5 229.72 17.07 232.01 C15.04 232.46 12.22 233.15 10.2 233.48 C10.74 235.53 11.19 238.67 11.57 240.81 L13.74 253.07 C16.59 252.45 19.56 251.98 22.38 251.32 C37.02 247.96 51.26 243.07 64.87 236.72 C68.35 235.14 71.81 233.29 75.21 231.54 C77.21 230.51 80.51 228.36 82.46 227.59 C95.16 245.43 114.42 256.02 136.44 256 C138.2 256 143.43 255.42 144.73 255.7 L155.69 253.77 C157.84 252.77 161.24 252.12 163.58 251.36 C169.42 249.45 174.92 247.02 180.48 244.42 C183.16 243.15 185.97 241.68 188.69 240.55 C187.75 239 186.33 237.06 185.28 235.55 C182.89 232.06 180.41 228.64 177.83 225.28 C169.32 214.01 156.88 203.12 143.65 197.71 C138.03 195.48 132.16 193.95 126.16 193.17 C126.63 192.74 127.06 192.26 127.49 191.79 C129.72 189.32 132.04 186.9 134.22 184.39 C136.69 181.53 138.97 178.46 141.49 175.64 C143.89 177.17 146.39 179.08 148.81 180.49 C159.64 186.84 171.9 190.14 184.53 189.62 C204.86 188.79 221.72 178.79 236.8 166 C238.62 164.44 240.43 162.87 242.23 161.29 C243.37 160.29 244.78 159.11 245.8 158.01 C239.97 153.5 234.6 148.65 228.45 144.43 C212.76 133.65 194.21 126.73 174.85 129.26 C172.42 129.57 170.2 130.05 167.81 130.54 C169.27 127.39 170.55 123.44 171.89 120.17 C172.73 118.11 173.95 113.23 174.98 111.49 C175.19 111.14 179.61 107.81 180.35 107.19 C191.83 97.66 200.94 84.04 203.68 69.31 C203.96 67.83 204.44 65.74 204.54 64.28 C204.67 62.21 204.96 59.81 204.97 57.76 C205.06 43.56 200.74 30.37 194.22 17.89 C193.22 15.97 191.91 13.88 190.82 11.99 C189.28 9.35 187.68 6.74 186.02 4.16 C185.36 3.1 184.04 0.91 183.27 0 Z"></path>';
+  const liveStarBadge = (n) =>
+    `<span class="live-star-badge" role="img" aria-label="${n}-star hotel"><svg class="laurel flip" viewBox="0 0 256 256" width="17" height="17" fill="currentColor" aria-hidden="true">${LAUREL}</svg><b>${n}</b><svg class="tiny-star" viewBox="0 0 256 256" width="8" height="8" fill="currentColor" aria-hidden="true"><path d="M234.29,114.85l-45,38.83L203,211.75a16.4,16.4,0,0,1-24.5,17.82L128,198.49,77.47,229.57A16.4,16.4,0,0,1,53,211.75l13.76-58.07-45-38.83A16.46,16.46,0,0,1,31.08,86l59-4.76,22.76-55.08a16.36,16.36,0,0,1,30.27,0l22.75,55.08,59,4.76a16.46,16.46,0,0,1,9.37,28.86Z"></path></svg><svg class="laurel" viewBox="0 0 256 256" width="17" height="17" fill="currentColor" aria-hidden="true">${LAUREL}</svg></span>`;
+  const LIVE_RATING_STAR = '<svg viewBox="0 0 256 256" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M229.06,108.79l-48.7,42,14.88,62.79a8.4,8.4,0,0,1-12.52,9.17L128,189.09,73.28,222.74a8.4,8.4,0,0,1-12.52-9.17l14.88-62.79-48.7-42A8.46,8.46,0,0,1,31.73,94L95.64,88.8l24.62-59.6a8.36,8.36,0,0,1,15.48,0l24.62,59.6L224.27,94A8.46,8.46,0,0,1,229.06,108.79Z" opacity="0.2"></path><path d="M239.18,97.26A16.38,16.38,0,0,0,224.92,86l-59-4.76L143.14,26.15a16.36,16.36,0,0,0-30.27,0L90.11,81.23,31.08,86a16.46,16.46,0,0,0-9.37,28.86l45,38.83L53,211.75a16.38,16.38,0,0,0,24.5,17.82L128,198.49l50.53,31.08A16.4,16.4,0,0,0,203,211.75l-13.76-58.07,45-38.83A16.43,16.43,0,0,0,239.18,97.26Zm-15.34,5.47-48.7,42a8,8,0,0,0-2.56,7.91l14.88,62.8a.37.37,0,0,1-.17.48c-.18.14-.23.11-.38,0l-54.72-33.65a8,8,0,0,0-8.38,0L69.09,215.94c-.15.09-.19.12-.38,0a.37.37,0,0,1-.17-.48l14.88-62.8a8,8,0,0,0-2.56-7.91l-48.7-42c-.12-.1-.23-.19-.13-.5s.18-.27.33-.29l63.92-5.16A8,8,0,0,0,103,91.86l24.62-59.61c.08-.17.11-.25.35-.25s.27.08.35.25L153,91.86a8,8,0,0,0,6.75,4.92l63.92,5.16c.15,0,.24,0,.33.29S224,102.63,223.84,102.73Z"></path></svg>';
+
   function cardHTML(h) {
     const st = state.stay;
     const nights = nightsOf(st);
     const total = h.perNight * nights * st.rooms;
     const fav = state.favourites.has(h.id);
+    const live = state.layout === 'listgrid';
     return `
 <article class="card" data-id="${h.id}">
   <div class="card-media">
@@ -1438,20 +1443,20 @@ window.DESTINATIONS = [
       <button type="button" class="carousel-btn next" data-action="slide" data-dir="1" aria-label="Next image">${icon('chevron-right')}</button>
       <div class="carousel-dots">${h.images.map((_, i) => `<button type="button" class="dot${i ? '' : ' is-active'}" data-action="go-slide" data-to="${i}" aria-label="Go to image ${i + 1}"></button>`).join('')}</div>` : ''}
     </div>
-    ${starBadge(h.stars)}
-    <button type="button" class="fav${fav ? ' is-on' : ''}" data-action="fav" aria-pressed="${fav}" aria-label="Save ${esc(h.name)}">${icon('heart', 18)}</button>
+    ${live ? liveStarBadge(h.stars) : `${starBadge(h.stars)}
+    <button type="button" class="fav${fav ? ' is-on' : ''}" data-action="fav" aria-pressed="${fav}" aria-label="Save ${esc(h.name)}">${icon('heart', 18)}</button>`}
   </div>
   <div class="card-body">
     <div class="card-main">
       <div class="card-title-row">
         <h3 class="card-title"><a href="#" data-action="open-hotel">${esc(h.name)}</a> <span class="card-loc">in ${esc(h.locality)}</span></h3>
-        <div class="card-rating"><b>${icon('star', 14)}${h.rating.toFixed(1)}</b><span>(${compact(h.reviews)})</span></div>
+        <div class="card-rating"><b>${live ? LIVE_RATING_STAR : icon('star', 14)}${h.rating.toFixed(1)}</b><span>(${compact(h.reviews)})</span></div>
       </div>
       ${h.tags.length ? `<div class="card-tags">${h.tags.map((t) => `<span class="tag">${TAG_ICONS[t] ? icon(TAG_ICONS[t], 14) : ''}<span>${esc(t)}</span></span>`).join('')}</div>` : ''}
-      <div class="card-perks">
+      ${live ? '' : `      <div class="card-perks">
         ${h.freeCancellation ? `<span class="perk perk-good">${icon('check', 14)}Free cancellation</span>` : `<span class="perk">${icon('clock', 14)}Non-refundable</span>`}
         <span class="perk">${icon('building', 14)}${esc(h.type)}</span>
-      </div>
+      </div>`}
     </div>
     <div class="card-foot">
       <div class="card-per">
@@ -1462,7 +1467,7 @@ window.DESTINATIONS = [
         <p class="price">${inr(total)}</p>
         <p>incl. taxes &amp; fees</p>
       </div>
-      <a href="#" class="btn btn-primary card-cta" data-action="open-hotel">View rooms</a>
+      ${live ? '' : '<a href="#" class="btn btn-primary card-cta" data-action="open-hotel">View rooms</a>'}
     </div>
   </div>
 </article>`;
