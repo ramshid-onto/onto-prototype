@@ -566,6 +566,20 @@ body.drawer-open .layout-switcher, body.search-open .layout-switcher, body.login
 .cal-foot { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); }
 
 .stay-sheet[data-type="who"] { padding: 8px 28px 20px; }
+/* D/E: live-site guest picker */
+.stay-sheet.live-who-sheet { padding: 16px; border-radius: 20px; border: 1px solid var(--line); box-shadow: 0 20px 25px -5px #0000001a, 0 8px 10px -6px #0000001a; }
+.live-who { display: flex; flex-direction: column; gap: 4px; }
+.live-who-row { display: flex; align-items: center; gap: 12px; padding: 8px 0; color: var(--ink-strong); }
+.live-who-row + .live-who-row { border-top: 1px solid var(--line); padding-top: 12px; }
+.live-who-label { flex: 1; min-width: 0; font-size: .875rem; font-weight: 700; color: var(--ink-strong); }
+.live-who-label span { color: var(--ink-muted); }
+.live-stepper { display: flex; align-items: center; height: 28px; overflow: hidden; border: 1px solid var(--ink-strong); border-radius: 999px; }
+.live-stepper button { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 999px; font-size: 1rem; font-weight: 700; color: var(--ink-strong); transition: background-color .15s; }
+.live-stepper button:hover:not(:disabled) { background: var(--highlight); }
+.live-stepper button:disabled { opacity: .4; }
+.live-stepper output { min-width: 10px; text-align: center; font-size: .875rem; font-weight: 700; color: var(--ink-strong); }
+.live-add { width: 83px; height: 28px; border: 1px solid var(--line); border-radius: 999px; font-size: .875rem; font-weight: 700; color: var(--ink-strong); transition: border-color .15s; }
+.live-add:hover { border-color: var(--line-strong); }
 .who-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 0; border-bottom: 1px solid var(--line); }
 .who-row:last-of-type { border-bottom: 0; }
 .who-row > div:first-child { display: flex; flex-direction: column; color: var(--ink-strong); }
@@ -1405,7 +1419,7 @@ window.DESTINATIONS = [
     stars: new Set(), types: new Set(), facilities: new Set(), chains: new Set(), houseRules: new Set(),
   });
 
-  const initialStay = { destination: 'Udaipur', checkIn: '2026-11-03', checkOut: '2026-11-05', adults: 2, children: 2, childAges: [4, 9], rooms: 1 };
+  const initialStay = { destination: 'Udaipur', checkIn: '2026-11-03', checkOut: '2026-11-05', adults: 2, children: 2, childAges: [4, 9], rooms: 1, pets: 0 };
 
   const state = {
     layout: 'classic',
@@ -1725,7 +1739,7 @@ window.DESTINATIONS = [
   }
 
   // E · Search on change: Search only appears once the stay differs from what's being shown.
-  const stayKey = (s) => JSON.stringify([s.destination.trim().toLowerCase(), s.checkIn, s.checkOut, s.adults, s.children, s.childAges, s.rooms]);
+  const stayKey = (s) => JSON.stringify([s.destination.trim().toLowerCase(), s.checkIn, s.checkOut, s.adults, s.children, s.childAges, s.rooms, s.pets || 0]);
   function updateSearchCta() {
     const dirty = searchOnChange() && stayKey(state.draft) !== stayKey(state.stay);
     $('#stay')?.classList.toggle('is-dirty', dirty);
@@ -1733,12 +1747,18 @@ window.DESTINATIONS = [
 
   function renderGuestsChips() {
     const d = state.draft;
+    if (liveStay()) {
+      // D/E: one pill like the live field, e.g. "1 Adult · 1 Child · 1 Pet".
+      const parts = [plural(d.adults, 'Adult'), d.children ? (d.children === 1 ? '1 Child' : `${d.children} Children`) : '', d.pets ? plural(d.pets, 'Pet') : '', d.rooms > 1 ? plural(d.rooms, 'Room') : ''].filter(Boolean);
+      $$('[data-bind="guests-chips"]').forEach((el) => (el.innerHTML = `<span class="pill-soft">${parts.join(' · ')}</span>`));
+      return;
+    }
     const g = [`<span class="pill-soft">${plural(d.adults, 'Adult')}</span>`];
     if (d.children) g.push(`<span class="pill-soft">${d.children === 1 ? '1 Child' : `${d.children} Children`}</span>`);
     if (d.rooms > 1) g.push(`<span class="pill-soft">${plural(d.rooms, 'Room')}</span>`);
     $$('[data-bind="guests-chips"]').forEach((el) => (el.innerHTML = g.join('')));
   }
-  const STEP_LIMITS = { adults: [1, 16], children: [0, 8], rooms: [1, 8] };
+  const STEP_LIMITS = { adults: [1, 16], children: [0, 8], rooms: [1, 8], pets: [0, 4] };
 
   function renderSortMenu() {
     const cur = SORTS.find((s) => s.value === state.sort);
@@ -1960,8 +1980,9 @@ window.DESTINATIONS = [
     const el = $('#stay-sheet');
     const r = sheet.anchor.getBoundingClientRect();
     const compactCal = liveStay() && sheet.type === 'when' && !sheet.fromBar; // D/E: live-site compact calendar, as wide as the field
-    const w = compactCal ? Math.max(r.width, 300) : Math.min(SHEET_W[sheet.type], window.innerWidth - 24);
-    let left = r.left;
+    const liveWho = liveStay() && sheet.type === 'who' && !sheet.fromBar; // D/E: live-site guest picker, right-aligned to the field
+    const w = compactCal ? Math.max(r.width, 300) : liveWho ? Math.min(359, window.innerWidth - 24) : Math.min(SHEET_W[sheet.type], window.innerWidth - 24);
+    let left = liveWho ? r.right - w : r.left;
     if (sheet.fromBar) {
       const bar = $('#stay-bar').getBoundingClientRect();
       if (sheet.type === 'when') left = bar.left + (bar.width - w) / 2;
@@ -1969,10 +1990,11 @@ window.DESTINATIONS = [
     }
     el.style.width = w + 'px';
     el.style.left = Math.max(12, Math.min(left, window.innerWidth - w - 12)) + 'px';
-    el.style.top = r.bottom + (compactCal ? 8 : 10) + 'px';
+    el.style.top = r.bottom + (compactCal || liveWho ? 8 : 10) + 'px';
     el.style.maxHeight = Math.max(240, window.innerHeight - r.bottom - 24) + 'px';
     el.classList.toggle('one-month', w < 600);
     el.classList.toggle('compact-cal', compactCal);
+    el.classList.toggle('live-who-sheet', liveWho);
   }
 
   function renderSheet() {
@@ -2052,7 +2074,32 @@ window.DESTINATIONS = [
     { key: 'children', label: 'Children', sub: 'Ages 0–12' },
     { key: 'rooms', label: 'Rooms', sub: 'Up to one per adult' },
   ];
+  // D/E guest picker icons, copied from the live site.
+  const WHO_ICONS = {
+    adult: '<path d="M192,96a64,64,0,1,1-64-64A64,64,0,0,1,192,96Z" opacity="0.2"></path><path d="M230.92,212c-15.23-26.33-38.7-45.21-66.09-54.16a72,72,0,1,0-73.66,0C63.78,166.78,40.31,185.66,25.08,212a8,8,0,1,0,13.85,8c18.84-32.56,52.14-52,89.07-52s70.23,19.44,89.07,52a8,8,0,1,0,13.85-8ZM72,96a56,56,0,1,1,56,56A56.06,56.06,0,0,1,72,96Z"></path>',
+    child: '<path d="M224,128a96,96,0,1,1-96-96A96,96,0,0,1,224,128Z" opacity="0.2"></path><path d="M92,140a12,12,0,1,1,12-12A12,12,0,0,1,92,140Zm72-24a12,12,0,1,0,12,12A12,12,0,0,0,164,116Zm-12.27,45.23a45,45,0,0,1-47.46,0,8,8,0,0,0-8.54,13.54,61,61,0,0,0,64.54,0,8,8,0,0,0-8.54-13.54ZM232,128A104,104,0,1,1,128,24,104.11,104.11,0,0,1,232,128Zm-16,0a88.11,88.11,0,0,0-84.09-87.91C120.32,56.38,120,71.88,120,72a8,8,0,0,0,16,0,8,8,0,0,1,16,0,24,24,0,0,1-48,0c0-.73.13-14.3,8.46-30.63A88,88,0,1,0,216,128Z"></path>',
+    pet: '<path d="M232,108a20,20,0,1,1-20-20A20,20,0,0,1,232,108ZM64,108a20,20,0,1,0-20,20A20,20,0,0,0,64,108ZM92,80A20,20,0,1,0,72,60,20,20,0,0,0,92,80Zm72,0a20,20,0,1,0-20-20A20,20,0,0,0,164,80Zm19.24,75.85A43.46,43.46,0,0,1,162.57,130a36,36,0,0,0-69.14,0,43.49,43.49,0,0,1-20.67,25.9,32,32,0,0,0,27.73,57.62,72.49,72.49,0,0,1,55,0,32,32,0,0,0,27.73-57.62Z" opacity="0.2"></path><path d="M212,80a28,28,0,1,0,28,28A28,28,0,0,0,212,80Zm0,40a12,12,0,1,1,12-12A12,12,0,0,1,212,120ZM72,108a28,28,0,1,0-28,28A28,28,0,0,0,72,108ZM44,120a12,12,0,1,1,12-12A12,12,0,0,1,44,120ZM92,88A28,28,0,1,0,64,60,28,28,0,0,0,92,88Zm0-40A12,12,0,1,1,80,60,12,12,0,0,1,92,48Zm72,40a28,28,0,1,0-28-28A28,28,0,0,0,164,88Zm0-40a12,12,0,1,1-12,12A12,12,0,0,1,164,48Zm23.12,100.86a35.3,35.3,0,0,1-16.87-21.14,44,44,0,0,0-84.5,0A35.25,35.25,0,0,1,69,148.82,40,40,0,0,0,88,224a39.48,39.48,0,0,0,15.52-3.13,64.09,64.09,0,0,1,48.87,0,40,40,0,0,0,34.73-72ZM168,208a24,24,0,0,1-9.45-1.93,80.14,80.14,0,0,0-61.19,0,24,24,0,0,1-20.71-43.26,51.22,51.22,0,0,0,24.46-30.67,28,28,0,0,1,53.78,0,51.27,51.27,0,0,0,24.53,30.71A24,24,0,0,1,168,208Z"></path>',
+    room: '<path d="M200,40V224H168V32h24A8,8,0,0,1,200,40Z" opacity="0.2"></path><path d="M232,216H208V40a16,16,0,0,0-16-16H64A16,16,0,0,0,48,40V216H24a8,8,0,0,0,0,16H232a8,8,0,0,0,0-16Zm-40,0H176V40h16ZM64,40h96V216H64Zm80,92a12,12,0,1,1-12-12A12,12,0,0,1,144,132Z"></path>',
+  };
+  const whoIcon = (n) => `<svg viewBox="0 0 256 256" width="24" height="24" fill="currentColor" aria-hidden="true">${WHO_ICONS[n]}</svg>`;
+  function liveWhoHTML() {
+    const d = state.draft;
+    const stepper = (key, noun, value, canDown, canUp) => `<span class="live-stepper">
+        <button type="button" data-action="step" data-key="${key}" data-dir="-1"${canDown ? '' : ' disabled'} aria-label="Remove ${noun}">−</button>
+        <output>${value}</output>
+        <button type="button" data-action="step" data-key="${key}" data-dir="1"${canUp ? '' : ' disabled'} aria-label="Add ${noun}">+</button>
+      </span>`;
+    const row = (iconName, label, control) => `<div class="live-who-row">${whoIcon(iconName)}<span class="live-who-label">${label}</span>${control}</div>`;
+    return `<div class="live-who">
+      ${row('adult', 'Adult', stepper('adults', 'adult', d.adults, d.adults > STEP_LIMITS.adults[0], d.adults < STEP_LIMITS.adults[1]))}
+      ${row('child', 'Children<span> (under 18y)</span>', stepper('children', 'child', d.children, d.children > 0, d.children < STEP_LIMITS.children[1]))}
+      ${row('pet', 'Pet', d.pets ? stepper('pets', 'pet', d.pets, true, d.pets < STEP_LIMITS.pets[1]) : '<button type="button" class="live-add" data-action="step" data-key="pets" data-dir="1" aria-label="Add pet">+ Add</button>')}
+      ${document.body.dataset.view === 'pdp' ? '' : row('room', 'Rooms', stepper('rooms', 'room', d.rooms, d.rooms > 1, d.rooms < Math.min(STEP_LIMITS.rooms[1], d.adults)))}
+    </div>`;
+  }
+
   function whoHTML() {
+    if (liveStay() && !sheet.fromBar) return liveWhoHTML();
     const d = state.draft;
     // On the hotel page rooms are picked per room type, so the Who sheet only asks about guests.
     const rows = STEP_ROWS.filter(({ key }) => key !== 'rooms' || document.body.dataset.view !== 'pdp').map(({ key, label, sub }) => {
