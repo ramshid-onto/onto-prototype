@@ -580,6 +580,7 @@ body.drawer-open .layout-switcher, body.search-open .layout-switcher, body.login
 .live-stepper output { min-width: 10px; text-align: center; font-size: .875rem; font-weight: 700; color: var(--ink-strong); }
 .live-add { width: 83px; height: 28px; border: 1px solid var(--line); border-radius: 999px; font-size: .875rem; font-weight: 700; color: var(--ink-strong); transition: border-color .15s; }
 .live-add:hover { border-color: var(--line-strong); }
+.live-who-done { margin-top: 8px; padding: 10px 24px; font-size: .875rem; }
 .who-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 0; border-bottom: 1px solid var(--line); }
 .who-row:last-of-type { border-bottom: 0; }
 .who-row > div:first-child { display: flex; flex-direction: column; color: var(--ink-strong); }
@@ -2095,6 +2096,7 @@ window.DESTINATIONS = [
       ${row('child', 'Children<span> (under 18y)</span>', stepper('children', 'child', d.children, d.children > 0, d.children < STEP_LIMITS.children[1]))}
       ${row('pet', 'Pet', d.pets ? stepper('pets', 'pet', d.pets, true, d.pets < STEP_LIMITS.pets[1]) : '<button type="button" class="live-add" data-action="step" data-key="pets" data-dir="1" aria-label="Add pet">+ Add</button>')}
       ${document.body.dataset.view === 'pdp' ? '' : row('room', 'Rooms', stepper('rooms', 'room', d.rooms, d.rooms > 1, d.rooms < Math.min(STEP_LIMITS.rooms[1], d.adults)))}
+      ${autoSearch() ? '<button type="button" class="btn btn-secondary btn-block live-who-done" data-action="sheet-done">Done</button>' : ''}
     </div>`;
   }
 
@@ -2413,6 +2415,7 @@ window.DESTINATIONS = [
         sheet.month = new Date(sheet.month.getFullYear(), sheet.month.getMonth() + +a.dataset.dir, 1);
         renderSheet();
         break;
+      case 'sheet-done': closeSheet(); break; // D: commits the guests (reloads results if they changed)
       case 'step': {
         const d = state.draft;
         const k = a.dataset.key;
