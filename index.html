@@ -455,6 +455,23 @@ body[data-layout="list"] .card-tags { max-height: none; }
 .live-star-badge .tiny-star { margin-left: 1px; transform: translateY(-2px); }
 .live-star-badge .laurel:last-child { margin-left: -8px; }
 
+/* E · Search on change: Search stays hidden until location, dates or guests change */
+body[data-search-cta="on-change"] .stay:not(.is-dirty) [data-action="run-search"] { display: none; }
+body[data-search-cta="on-change"] .stay.is-dirty [data-action="run-search"] { animation: cta-in .25s var(--ease); }
+@keyframes cta-in { from { opacity: 0; transform: translateY(-6px); } }
+.skeleton-card { gap: 10px; padding: 8px 8px 24px; }
+.skeleton-card .sk-media { margin-bottom: 8px; }
+.skeleton-card .sk-line { width: 70%; }
+.skeleton-card .sk-line.short { width: 35%; margin-bottom: 4px; }
+.sk-tags { display: flex; gap: 8px; margin: 0 16px; }
+.sk-tags span { width: 84px; height: 26px; border-radius: var(--r-sm); }
+.sk-foot { display: flex; justify-content: space-between; margin: 12px 16px 0; padding-top: 16px; border-top: 1px dashed var(--line); }
+.sk-foot .sk-line { width: 30%; height: 36px; margin: 0; }
+.sk-tags span { background: linear-gradient(90deg, var(--highlight) 0%, #f3f4f7 50%, var(--highlight) 100%); background-size: 200% 100%; animation: shimmer 1.1s linear infinite; }
+.card-in { animation: card-in .35s var(--ease) both; }
+@keyframes card-in { from { opacity: 0; transform: translateY(8px); } }
+@media (prefers-reduced-motion: reduce) { .card-in, body[data-search-cta="on-change"] .stay.is-dirty [data-action="run-search"] { animation: none; } }
+
 /* ===================================================================
    Gallery header: compact stay bar + quick filter bar
    =================================================================== */
@@ -978,6 +995,7 @@ body.pdp-sheet-open .pdp-switcher { opacity: 0; pointer-events: none; }
     <button type="button" role="radio" data-layout-option="list">B · List</button>
     <button type="button" role="radio" data-layout-option="gallery">C · Gallery</button>
     <button type="button" role="radio" data-layout-option="listgrid">D · List, grid</button>
+    <button type="button" role="radio" data-layout-option="listsearch">E · Search on change</button>
   </div>
 
   <!-- Quick filter bar, used by the Gallery layout -->
@@ -1255,6 +1273,12 @@ window.DESTINATIONS = [
   const $$ = (s, r = document) => [...r.querySelectorAll(s)];
   const HOTELS = window.HOTELS;
   const DESTINATIONS = window.DESTINATIONS;
+  // Set by build_plp.py for the standalone PLP: one fixed layout, no hotel page.
+  const CONFIG = window.ONTO_CONFIG || {};
+  const LAYOUTS = CONFIG.layouts || ['classic', 'list', 'gallery', 'listgrid', 'listsearch'];
+  // E · Search on change is D's look with a different search interaction.
+  const LOOK = { listsearch: 'listgrid' };
+  const searchOnChange = () => state.layout === 'listsearch';
 
   /* ------------------------------------------------------------------ icons */
   const ICONS = {
@@ -1413,7 +1437,20 @@ window.DESTINATIONS = [
     }).length;
   }
 
-  const results = () => HOTELS.filter((h) => matches(h)).sort(SORTS.find((s) => s.value === state.sort).fn);
+  // E · Search on change: each search shows a different, stable mix of the dummy hotels so it reads as new results.
+  function seeded(seed) {
+    let s = seed >>> 0 || 1;
+    return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 2 ** 32);
+  }
+  function searchMix(list) {
+    if (!searchOnChange() || !state.searchSeed) return list;
+    const rnd = seeded(state.searchSeed);
+    const order = new Map(HOTELS.map((h) => [h.id, rnd()]));
+    const keep = new Set([...HOTELS].sort((x, y) => order.get(x.id) - order.get(y.id)).slice(0, 6 + (state.searchSeed % 5)).map((h) => h.id));
+    const mixed = list.filter((h) => keep.has(h.id));
+    return state.sort === 'RECOMMENDED' ? mixed.sort((x, y) => order.get(x.id) - order.get(y.id)) : mixed;
+  }
+  const results = () => searchMix(HOTELS.filter((h) => matches(h)).sort(SORTS.find((s) => s.value === state.sort).fn));
 
   /* ------------------------------------------------------------- rendering */
   const starBadge = (n) =>
@@ -1430,7 +1467,7 @@ window.DESTINATIONS = [
     const nights = nightsOf(st);
     const total = h.perNight * nights * st.rooms;
     const fav = state.favourites.has(h.id);
-    const live = state.layout === 'listgrid';
+    const live = (LOOK[state.layout] || state.layout) === 'listgrid';
     return `
 <article class="card" data-id="${h.id}">
   <div class="card-media">
@@ -1485,7 +1522,8 @@ window.DESTINATIONS = [
       else img.style.visibility = 'hidden';
     }));
 
-    const label = `${plural(list.length, 'stay')}${list.length !== HOTELS.length ? ` of ${HOTELS.length}` : ''}`;
+    const total = searchMix(HOTELS).length; // E: the searched mix is the whole result set
+    const label = `${plural(list.length, 'stay')}${list.length !== total ? ` of ${total}` : ''}`;
     bind('count', label);
     bind('show-results', list.length ? `Show ${plural(list.length, 'stay')}` : 'No stays');
   }
@@ -1649,6 +1687,7 @@ window.DESTINATIONS = [
     bind('bar-guests', guestsSummary(d));
 
     bind('destination', a.destination);
+    updateSearchCta();
     if (document.body.dataset.view === 'pdp') {
       // The PDP has no Search button: date / guest edits apply straight away.
       state.stay = structuredClone(state.draft);
@@ -1656,6 +1695,13 @@ window.DESTINATIONS = [
     } else {
       document.title = `Hotels in ${a.destination} | onto.travel (UI prototype)`;
     }
+  }
+
+  // E · Search on change: Search only appears once the stay differs from what's being shown.
+  const stayKey = (s) => JSON.stringify([s.destination.trim().toLowerCase(), s.checkIn, s.checkOut, s.adults, s.children, s.childAges, s.rooms]);
+  function updateSearchCta() {
+    const dirty = searchOnChange() && stayKey(state.draft) !== stayKey(state.stay);
+    $('#stay')?.classList.toggle('is-dirty', dirty);
   }
 
   function renderGuestsChips() {
@@ -1729,7 +1775,9 @@ window.DESTINATIONS = [
 
   function setLayout(layout, { silent } = {}) {
     state.layout = layout;
-    document.body.dataset.layout = layout;
+    document.body.dataset.layout = LOOK[layout] || layout;
+    document.body.dataset.searchCta = searchOnChange() ? 'on-change' : '';
+    updateSearchCta();
     $$('[data-layout-option]').forEach((b) => b.setAttribute('aria-checked', b.dataset.layoutOption === layout));
     try { localStorage.setItem('onto-layout', layout); } catch {}
     history.replaceState(null, '', hashFor({ hotel: parseHash().hotel }));
@@ -2159,16 +2207,23 @@ window.DESTINATIONS = [
     closePops();
     closeDrawer();
     const l = $('#listing');
+    const onChange = searchOnChange();
+    if (onChange) state.searchSeed = (state.searchSeed || 0) + 1 + Math.floor(Math.random() * 97);
     l.classList.add('is-loading');
     l.setAttribute('aria-busy', 'true');
-    l.innerHTML = Array.from({ length: 4 }, () => '<div class="card skeleton"><div class="sk-media"></div><div class="sk-line"></div><div class="sk-line short"></div></div>').join('');
+    l.innerHTML = onChange
+      ? Array.from({ length: Math.max(4, $$('#listing .card').length) }, () => '<div class="card skeleton skeleton-card"><div class="sk-media"></div><div class="sk-line"></div><div class="sk-line short"></div><div class="sk-tags"><span></span><span></span><span></span></div><div class="sk-foot"><span class="sk-line"></span><span class="sk-line"></span></div></div>').join('')
+      : Array.from({ length: 4 }, () => '<div class="card skeleton"><div class="sk-media"></div><div class="sk-line"></div><div class="sk-line short"></div></div>').join('');
+    if (onChange) window.scrollTo({ top: 0, behavior: 'smooth' });
+    renderStay();
     setTimeout(() => {
       l.classList.remove('is-loading');
       l.setAttribute('aria-busy', 'false');
       renderStay();
       render();
-      if (name !== 'Udaipur') toast(`Dummy data: showing Udaipur stays for “${name}”`);
-    }, 600);
+      if (onChange) $$('#listing .card').forEach((c, i) => { c.style.animationDelay = `${i * 40}ms`; c.classList.add('card-in'); });
+      else if (name !== 'Udaipur') toast(`Dummy data: showing Udaipur stays for “${name}”`);
+    }, onChange ? 1400 : 600);
   }
 
   /* -------------------------------------------------------------- events */
@@ -2332,7 +2387,7 @@ window.DESTINATIONS = [
     const t = e.target;
     if (t.matches('.range-lo')) setPrice(+t.value, state.filters.price[1], 'lo');
     else if (t.matches('.range-hi')) setPrice(state.filters.price[0], +t.value, 'hi');
-    else if (t.classList.contains('stay-dest')) { sheet.query = t.value; state.draft.destination = t.value; sheet.active = -1; if (sheet.type === 'where') renderSheet(); }
+    else if (t.classList.contains('stay-dest')) { sheet.query = t.value; state.draft.destination = t.value; sheet.active = -1; updateSearchCta(); if (sheet.type === 'where') renderSheet(); }
     else if (t.id === 'search-input') { searchActive = 0; renderSearch(); }
   });
   document.addEventListener('change', (e) => {
@@ -2447,6 +2502,7 @@ window.DESTINATIONS = [
   let plpScroll = 0;
   let pendingSection = null;
   function goToHotel(id, section = null) {
+    if (CONFIG.noPdp) { toast('Hotel page isn’t part of this prototype'); return; }
     if (document.body.dataset.view !== 'pdp') plpScroll = window.scrollY;
     pendingSection = section;
     location.hash = hashFor({ hotel: id });
@@ -2454,7 +2510,7 @@ window.DESTINATIONS = [
   const goToResults = () => { location.hash = hashFor(); };
   function route() {
     const { hotel } = parseHash();
-    const h = hotel && HOTELS.find((x) => x.id === hotel);
+    const h = !CONFIG.noPdp && hotel && HOTELS.find((x) => x.id === hotel);
     closeSheet({ revert: true }); closeDrawer(); closeQuickPop(); closePops();
     if (h) {
       const wasPlp = document.body.dataset.view !== 'pdp';
@@ -2475,7 +2531,7 @@ window.DESTINATIONS = [
 
   window.addEventListener('hashchange', () => {
     const { layout: l } = parseHash();
-    if (l && l !== state.layout && ['classic', 'list', 'gallery', 'listgrid'].includes(l)) setLayout(l);
+    if (l && l !== state.layout && LAYOUTS.includes(l)) setLayout(l);
     route();
   });
   window.addEventListener('resize', () => { positionSheet(); observeTitle(); if (quickOpen) positionQuickPop(); if (!drawerMode()) closeDrawer(); });
@@ -2495,9 +2551,9 @@ window.DESTINATIONS = [
   const fromHash = parseHash().layout;
   let saved = null;
   try { saved = localStorage.getItem('onto-layout'); } catch {}
-  const valid = ['classic', 'list', 'gallery', 'listgrid'];
+  const valid = LAYOUTS;
   document.body.dataset.view = 'plp';
-  setLayout(valid.includes(fromHash) ? fromHash : valid.includes(saved) ? saved : 'classic', { silent: true });
+  setLayout(valid.includes(fromHash) ? fromHash : valid.includes(saved) ? saved : valid[0], { silent: true });
   render();
 
   // Shared helpers for pdp.js
