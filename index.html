@@ -403,7 +403,7 @@ body[data-layout="gallery"] .filters-btn { display: none; }
   .sidebar-scroll { flex: 1; overflow-y: auto; padding: 20px 16px 32px; }
 }
 @media (min-width: 1024px) {
-  body[data-layout="classic"] .filters-btn, body[data-layout="list"] .filters-btn { display: none; }
+  body[data-layout="classic"] .filters-btn, body[data-layout="list"] .filters-btn, body[data-layout="listgrid"] .filters-btn { display: none; }
 }
 
 /* ===================================================================
@@ -415,7 +415,8 @@ body[data-layout="gallery"] .filters-btn { display: none; }
   body[data-layout="classic"] .results-head { flex-wrap: nowrap; padding: 0 24px; }
   body[data-layout="classic"] .active-filters { padding: 0 24px; }
   body[data-layout="classic"] .sidebar,
-  body[data-layout="list"] .sidebar { position: sticky; top: calc(var(--header-h) + 8px); align-self: start; max-height: calc(100vh - 6rem); overflow-y: auto; margin: 0 -12px; padding: 0 12px 24px; scrollbar-width: thin; }
+  body[data-layout="list"] .sidebar,
+  body[data-layout="listgrid"] .sidebar { position: sticky; top: calc(var(--header-h) + 8px); align-self: start; max-height: calc(100vh - 6rem); overflow-y: auto; margin: 0 -12px; padding: 0 12px 24px; scrollbar-width: thin; }
 }
 body[data-layout="classic"] .results-count { display: none; }
 
@@ -440,6 +441,21 @@ body[data-layout="list"] .listing { grid-template-columns: minmax(0, 1fr); gap: 
 body[data-layout="list"] .card-perks { display: flex; }
 body[data-layout="list"] .fav { display: grid; }
 body[data-layout="list"] .card-tags { max-height: none; }
+
+/* ===================================================================
+   D · List, grid — B's cards and filters, but cards in a grid and filters on the right
+   =================================================================== */
+@media (min-width: 1024px) {
+  body[data-layout="listgrid"] .page-grid { grid-template-columns: minmax(0, 1fr) 300px; column-gap: 40px; }
+}
+body[data-layout="listgrid"] .listing { align-items: stretch; }
+@media (min-width: 768px) {
+  body[data-layout="listgrid"] .listing { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
+  body[data-layout="listgrid"] .card-foot { flex-wrap: wrap; border-top-style: solid; }
+  body[data-layout="listgrid"] .card-cta { display: inline-flex; flex: 1 0 100%; justify-content: center; padding: 12px 20px; }
+}
+body[data-layout="listgrid"] .card-perks { display: flex; }
+body[data-layout="listgrid"] .fav { display: grid; }
 
 /* ===================================================================
    Gallery header: compact stay bar + quick filter bar
@@ -963,6 +979,7 @@ body.pdp-sheet-open .pdp-switcher { opacity: 0; pointer-events: none; }
     <button type="button" role="radio" data-layout-option="classic">A · Classic</button>
     <button type="button" role="radio" data-layout-option="list">B · List</button>
     <button type="button" role="radio" data-layout-option="gallery">C · Gallery</button>
+    <button type="button" role="radio" data-layout-option="listgrid">D · List, grid</button>
   </div>
 
   <!-- Quick filter bar, used by the Gallery layout -->
@@ -2453,7 +2470,7 @@ window.DESTINATIONS = [
 
   window.addEventListener('hashchange', () => {
     const { layout: l } = parseHash();
-    if (l && l !== state.layout && ['classic', 'list', 'gallery'].includes(l)) setLayout(l);
+    if (l && l !== state.layout && ['classic', 'list', 'gallery', 'listgrid'].includes(l)) setLayout(l);
     route();
   });
   window.addEventListener('resize', () => { positionSheet(); observeTitle(); if (quickOpen) positionQuickPop(); if (!drawerMode()) closeDrawer(); });
@@ -2473,7 +2490,7 @@ window.DESTINATIONS = [
   const fromHash = parseHash().layout;
   let saved = null;
   try { saved = localStorage.getItem('onto-layout'); } catch {}
-  const valid = ['classic', 'list', 'gallery'];
+  const valid = ['classic', 'list', 'gallery', 'listgrid'];
   document.body.dataset.view = 'plp';
   setLayout(valid.includes(fromHash) ? fromHash : valid.includes(saved) ? saved : 'classic', { silent: true });
   render();
