@@ -1947,9 +1947,12 @@ window.DESTINATIONS = [
   }
 
   function whereHTML() {
-    const q = sheet.query.trim().toLowerCase();
-    const items = DESTINATIONS.filter((d) => !q || `${d.name} ${d.region}`.toLowerCase().includes(q));
-    if (!q) items.unshift({ name: 'Nearby', nearby: true, blurb: 'Find what’s around you', icon: 'nav', tone: '#2563eb' });
+    // E · Search on change: no Nearby; suggestions only when the field is empty, and a filled field shows just its destination.
+    const onChange = searchOnChange();
+    const q = (onChange ? sheet.query.trim() || state.draft.destination.trim() : sheet.query.trim()).toLowerCase();
+    const exact = onChange ? DESTINATIONS.filter((d) => d.name.toLowerCase() === q) : [];
+    const items = exact.length ? exact : DESTINATIONS.filter((d) => !q || `${d.name} ${d.region}`.toLowerCase().includes(q));
+    if (!q && !onChange) items.unshift({ name: 'Nearby', nearby: true, blurb: 'Find what’s around you', icon: 'nav', tone: '#2563eb' });
     sheet.items = items;
     const rows = items.map((d, i) => `
       <button type="button" class="dest-item${i === sheet.active ? ' is-active' : ''}" role="option" aria-selected="${i === sheet.active}" data-dest-index="${i}">
@@ -1957,7 +1960,7 @@ window.DESTINATIONS = [
         <span class="dest-text"><b>${esc(d.nearby ? d.name : `${d.name}, ${d.region.split(',')[0]}`)}${!d.nearby && d.name === state.stay.destination ? '<em>Current</em>' : ''}</b><small>${esc(d.blurb)}</small></span>
       </button>`).join('');
     return `<p class="sheet-title">${q ? 'Destinations' : 'Suggested destinations'}</p>
-      <div class="dest-list" role="listbox">${rows || `<p class="sheet-empty">No destinations match “${esc(sheet.query)}”</p>`}</div>`;
+      <div class="dest-list" role="listbox">${rows || `<p class="sheet-empty">No destinations match “${esc(sheet.query || state.draft.destination)}”</p>`}</div>`;
   }
 
   function monthHTML(m) {
@@ -2324,7 +2327,10 @@ window.DESTINATIONS = [
         const input = a.closest('[data-sheet-wrap]').querySelector('.stay-dest');
         input.value = '';
         state.draft.destination = '';
+        sheet.query = '';
         input.focus();
+        updateSearchCta();
+        if (sheet.type === 'where') renderSheet();
         break;
       }
       case 'run-search': runSearch(); break;
