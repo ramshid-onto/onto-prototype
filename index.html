@@ -540,6 +540,27 @@ body.drawer-open .layout-switcher, body.search-open .layout-switcher, body.login
 /* half-cell connectors so the range reads as one continuous band */
 .day.has-range { border-radius: 0; background: linear-gradient(90deg, transparent 50%, var(--highlight) 50%); }
 .day.is-end { border-radius: 0; background: linear-gradient(90deg, var(--highlight) 50%, transparent 50%); }
+/* E · Search on change: compact one-month calendar, copied from the live site */
+.stay-sheet.compact-cal { padding: 16px; border-radius: 20px; border: 1px solid var(--line); box-shadow: 0 20px 25px -5px #0000001a, 0 8px 10px -6px #0000001a; }
+.compact-cal .cal-head { height: 30px; margin-bottom: 12px; gap: 0; }
+.compact-cal .cal-head .icon-btn { width: 30px; height: 30px; flex: 0 0 30px; border: 1px solid var(--line); border-radius: 999px; }
+.compact-cal .cal-month { flex: 1; text-align: center; font-size: 1.25rem; font-weight: 700; color: var(--ink-strong); }
+.compact-cal .dow { display: grid; grid-template-columns: repeat(7, 1fr); height: 26px; margin: 0; text-align: center; font-size: .875rem; font-weight: 500; color: var(--ink-muted); }
+.compact-cal .dow span { padding: 0; font: inherit; line-height: 26px; color: inherit; }
+.compact-cal .days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 0; }
+.compact-cal .day { aspect-ratio: auto; height: 44px; border-radius: 999px; background: none; font-size: .875rem; font-weight: 500; color: var(--ink); }
+.compact-cal .day:hover:not(:disabled):not(.is-start):not(.is-end):not(.in-range) { box-shadow: none; background: var(--highlight); }
+.compact-cal .day:disabled { color: var(--ink-muted); opacity: .4; text-decoration: none; }
+.compact-cal .day.in-range, .compact-cal .day.is-start, .compact-cal .day.is-end { border-radius: 0; background: none; }
+.compact-cal .day.in-range::before, .compact-cal .day.is-start::after, .compact-cal .day.is-end::after { content: ''; position: absolute; inset: 1px 0; z-index: -1; border-radius: 0; }
+.compact-cal .day.in-range { isolation: isolate; }
+.compact-cal .day.is-start, .compact-cal .day.is-end { isolation: isolate; color: #fff; }
+.compact-cal .day.in-range::before { background: #99ebd1; }
+.compact-cal .day.is-start::after, .compact-cal .day.is-end::after { background: var(--accent); }
+/* ticket-style notches on the outer edge of check-in / check-out */
+.compact-cal .day.is-start::after { clip-path: polygon(-10% -10%, 110% -10%, 110% 110%, -10% 110%, -10% 74.8%, 5% 74.8%, 5% 68.8%, -10% 68.8%, -10% 29.6%, 5% 29.6%, 5% 23.6%, -10% 23.6%); }
+.compact-cal .day.is-end::after { clip-path: polygon(-10% -10%, 110% -10%, 110% 23.6%, 95% 23.6%, 95% 29.6%, 110% 29.6%, 110% 68.8%, 95% 68.8%, 95% 74.8%, 110% 74.8%, 110% 110%, -10% 110%); }
+.compact-cal .day.is-start:not(.has-range)::after { clip-path: none; border-radius: 999px; }
 .cal-foot { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); }
 
 .stay-sheet[data-type="who"] { padding: 8px 28px 20px; }
@@ -1926,7 +1947,8 @@ window.DESTINATIONS = [
     if (!sheet.type) return;
     const el = $('#stay-sheet');
     const r = sheet.anchor.getBoundingClientRect();
-    const w = Math.min(SHEET_W[sheet.type], window.innerWidth - 24);
+    const compactCal = searchOnChange() && sheet.type === 'when' && !sheet.fromBar; // E: live-site compact calendar, as wide as the field
+    const w = compactCal ? Math.max(r.width, 300) : Math.min(SHEET_W[sheet.type], window.innerWidth - 24);
     let left = r.left;
     if (sheet.fromBar) {
       const bar = $('#stay-bar').getBoundingClientRect();
@@ -1935,9 +1957,10 @@ window.DESTINATIONS = [
     }
     el.style.width = w + 'px';
     el.style.left = Math.max(12, Math.min(left, window.innerWidth - w - 12)) + 'px';
-    el.style.top = r.bottom + 10 + 'px';
+    el.style.top = r.bottom + (compactCal ? 8 : 10) + 'px';
     el.style.maxHeight = Math.max(240, window.innerHeight - r.bottom - 24) + 'px';
     el.classList.toggle('one-month', w < 600);
+    el.classList.toggle('compact-cal', compactCal);
   }
 
   function renderSheet() {
@@ -1963,9 +1986,9 @@ window.DESTINATIONS = [
       <div class="dest-list" role="listbox">${rows || `<p class="sheet-empty">No destinations match “${esc(sheet.query || state.draft.destination)}”</p>`}</div>`;
   }
 
-  function monthHTML(m) {
+  function monthHTML(m, compact = false) {
     const y = m.getFullYear(), mo = m.getMonth();
-    const offset = (new Date(y, mo, 1).getDay() + 6) % 7; // weeks start on Monday
+    const offset = compact ? new Date(y, mo, 1).getDay() : (new Date(y, mo, 1).getDay() + 6) % 7; // weeks start on Monday (compact: Sunday, like the live site)
     const count = new Date(y, mo + 1, 0).getDate();
     const d = state.draft;
     let cells = '<span></span>'.repeat(offset);
@@ -1976,6 +1999,10 @@ window.DESTINATIONS = [
       const cls = ['day', start && 'is-start', end && 'is-end', !sheet.pickingEnd && iso > d.checkIn && iso < d.checkOut && 'in-range', start && !sheet.pickingEnd && 'has-range'].filter(Boolean).join(' ');
       cells += `<button type="button" class="${cls}" data-day="${iso}"${iso < TODAY ? ' disabled' : ''} aria-pressed="${start || end}" aria-label="${fmtDay(iso)}">${i}</button>`;
     }
+    if (compact) return `<div class="month">
+      <div class="dow">${['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((x) => `<span>${x}</span>`).join('')}</div>
+      <div class="days">${cells}</div>
+    </div>`;
     return `<div class="month">
       <p class="month-name">${m.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}</p>
       <div class="dow">${['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((x) => `<span>${x}</span>`).join('')}</div>
@@ -1988,6 +2015,14 @@ window.DESTINATIONS = [
     const m1 = sheet.month;
     const m2 = new Date(m1.getFullYear(), m1.getMonth() + 1, 1);
     const canPrev = isoDate(m1) > TODAY.slice(0, 8) + '01';
+    if (searchOnChange() && !sheet.fromBar) {
+      return `<div class="cal-head">
+        <button type="button" class="icon-btn" data-action="cal-nav" data-dir="-1"${canPrev ? '' : ' disabled'} aria-label="Previous month">${icon('chevron-left', 16)}</button>
+        <p class="cal-month" aria-live="polite">${m1.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}</p>
+        <button type="button" class="icon-btn" data-action="cal-nav" data-dir="1" aria-label="Next month">${icon('chevron-right', 16)}</button>
+      </div>
+      ${monthHTML(m1, true)}`;
+    }
     const status = sheet.pickingEnd
       ? `Check-in ${fmtDay(d.checkIn)} · now pick check-out`
       : `${fmtDay(d.checkIn)} – ${fmtDay(d.checkOut)} · ${plural(nightsOf(d), 'night')}`;
